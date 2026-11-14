@@ -166,6 +166,7 @@ export function toClientMessage(stored: StoredMessage): ChatMessage {
     repeaterCount: stored.repeater_count,
     lateEchoes: stored.late_echoes && stored.late_echoes.length > 0 ? stored.late_echoes : undefined,
     resends: stored.resends && stored.resends.length > 0 ? stored.resends : undefined,
+    reactions: stored.reactions && stored.reactions.length > 0 ? stored.reactions : undefined,
     floodScope: stored.flood_scope ?? derived.floodScope,
     regionScope: stored.region_scope ?? derived.regionScope,
   };

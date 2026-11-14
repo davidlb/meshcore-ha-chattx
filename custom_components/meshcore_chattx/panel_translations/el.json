@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} αναμεταδότης|{n} αναμεταδότες",
   "updated {when}": "ενημερώθηκε {when}",
   "Update failed: {error}": "Η ενημέρωση απέτυχε: {error}",
-  "Update now": "Ενημέρωση τώρα"
+  "Update now": "Ενημέρωση τώρα",
+  "React": "Αντίδραση",
+  "React with {emoji}": "Αντίδραση με {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Δεν είναι δυνατή η αντίδραση σε αυτό το μήνυμα: η ώρα αποστολής του είναι άγνωστη.",
+  "The reaction could not be sent: {error}": "Η αντίδραση δεν στάλθηκε: {error}",
+  "sending failed": "η αποστολή απέτυχε"
 }

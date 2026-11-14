@@ -13,7 +13,7 @@ import { loadShowMessagePreview, saveShowMessagePreview } from '../utils/message
 import { longLink } from '../utils/links';
 import { loadDraft, saveDraft } from '../utils/drafts';
 import { discoverChannelEntity, discoverContactEntity } from '../chat/entity-resolver';
-import { getRepeaterLoginState, sendDirectMessage, sendChannelMessage, shortenUrl } from '../api';
+import { getReactionText, getRepeaterLoginState, sendDirectMessage, sendChannelMessage, shortenUrl } from '../api';
 import {
   AT_BOTTOM_THRESHOLD_PX,
   LAZY_LOAD_TRIGGER_PX,
@@ -71,6 +71,7 @@ export class ChatPage extends LitElement {
   /** Image chosen or pasted for upload; the upload dialog is open while set. */
   @state() private _imageFile: Blob | null = null;
   @state() private _shortenError = '';
+  @state() private _reactionError = '';
   @state() private _sending = false;
   @state() private _viewportNarrow = false;
   private _mediaQuery: MediaQueryList | null = null;
@@ -1004,7 +1005,7 @@ export class ChatPage extends LitElement {
     const remaining = this._remainingBytes();
     const diacriticsLabel = t('Send without diacritics. The text changes when it is sent.');
     return html`
-      <div class="chat-container" @reply-to-sender=${this._onReplyToSender} @resend-message=${this._onResendMessage} @scroll=${this._onChatScroll}>
+      <div class="chat-container" @reply-to-sender=${this._onReplyToSender} @resend-message=${this._onResendMessage} @react-to-message=${this._onReactToMessage} @scroll=${this._onChatScroll}>
         ${this._messageStore.loadingOlder
           ? html`<div class="loading-older"><div class="loading-spinner"></div></div>`
           : html``}
@@ -1037,6 +1038,7 @@ export class ChatPage extends LitElement {
         ${this._renderNewMessagesIndicator()}
       </div>
       ${this._renderShortenBar()}
+          ${this._reactionError ? html`<div class="shorten-bar"><span class="shorten-error">${this._reactionError}</span></div>` : html``}
       <chattx-image-upload-dialog
         .hass=${this.hass}
         .file=${this._imageFile}
@@ -1463,13 +1465,35 @@ export class ChatPage extends LitElement {
     void this._deliver(text);
   }
 
+  /** React to a stored message: the backend builds the text, we send it. */
+  private async _onReactToMessage(e: CustomEvent<{ messageId: string; emoji: string }>) {
+    const entityId = this._messageStore?.entityId;
+    if (!entityId || !this.hass || this._sending || !this._conversationResolved) return;
+    this._reactionError = '';
+    let text: string;
+    try {
+      text = await getReactionText(this.hass, entityId, e.detail.messageId, e.detail.emoji);
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      this._reactionError = code === 'no_sender_time'
+        ? t('This message cannot get a reaction: its send time is not known.')
+        : t('The reaction could not be sent: {error}', { error: (err as Error)?.message ?? String(err) });
+      setTimeout(() => { this._reactionError = ''; }, 8000);
+      return;
+    }
+    if (!(await this._deliver(text, false))) {
+      this._reactionError = t('The reaction could not be sent: {error}', { error: t('sending failed') });
+      setTimeout(() => { this._reactionError = ''; }, 8000);
+    }
+  }
+
   /** Send a text to the open conversation; false when it failed. */
-  private async _deliver(text: string): Promise<boolean> {
+  private async _deliver(text: string, optimistic = true): Promise<boolean> {
     if (!this.selectedId || !this.hass || !this.config) return false;
     this._sending = true;
     try {
       // Add optimistic message
-      if (this._messageStore) {
+      if (this._messageStore && optimistic) {
         this._messageStore.addOptimisticMessage(this.config.node_name, text);
         // Always scroll to bottom after sending
         this._pendingScroll = 'bottom';

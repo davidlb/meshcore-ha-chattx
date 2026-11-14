@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} ретранслятор|{n} ретранслятори|{n} ретрансляторів",
   "updated {when}": "оновлено {when}",
   "Update failed: {error}": "Не вдалося оновити: {error}",
-  "Update now": "Оновити зараз"
+  "Update now": "Оновити зараз",
+  "React": "Реагувати",
+  "React with {emoji}": "Реагувати {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Неможливо відреагувати на це повідомлення: час його надсилання невідомий.",
+  "The reaction could not be sent: {error}": "Не вдалося надіслати реакцію: {error}",
+  "sending failed": "надсилання не вдалося"
 }

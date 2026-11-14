@@ -39,9 +39,11 @@ from .const import (
     EVENT_MESHCORE_DELIVERY_UPDATE,
     EVENT_MESHCORE_DISCONNECTED,
     EVENT_MESHCORE_MESSAGE,
+    EVENT_REACTION_UPDATED,
     MESHCORE_DOMAIN,
 )
 from .channel_scopes import ChannelScopeStore
+from .reactions import SenderTimeCache, channel_text, parse_reaction
 from .channel_total_exclusions import ChannelTotalExclusionStore
 from .message_store import MessageStore
 from .panel import async_register_panel, async_remove_panel
@@ -57,6 +59,7 @@ from .unread_tracking import EVENT_UNREAD_UPDATED, UnreadTracker
 from .utils import (
     enrich_rx_log_entries,
     hoist_flood_scope,
+    message_sender,
     wildcard_global_allowlisted,
 )
 
@@ -304,6 +307,13 @@ async def async_setup_entry(
         _make_connection_state_handler(hass, entry.entry_id, connected=False),
     ))
 
+    # Sender timestamps for reactions: taken from the radio's receive events.
+    _subscribe_sender_times(hass, entry)
+    entry.async_on_unload(hass.bus.async_listen(
+        EVENT_MESHCORE_CONNECTED,
+        lambda _event: _subscribe_sender_times(hass, entry),
+    ))
+
     # Re-run retention cleanup when options change (per-conversation cap
     # is read lazily on each save and needs no listener; retention days
     # do because the prune pass only runs at startup otherwise).
@@ -397,6 +407,83 @@ async def async_unload_entry(
     return True
 
 
+# ─── sender timestamps (reactions) ─────────────────────────────────────────
+
+
+def _sender_time_cache(hass: HomeAssistant) -> SenderTimeCache:
+    bucket = hass.data.setdefault(DOMAIN, {})
+    cache = bucket.get("sender_times")
+    if cache is None:
+        cache = bucket["sender_times"] = SenderTimeCache()
+    return cache
+
+
+def _subscribe_sender_times(hass: HomeAssistant, entry) -> None:
+    """Listen to each radio's receive events for the sender timestamps.
+
+    meshcore-ha 3.x keeps these registrations across reconnects; on 2.x
+    (no ``subscribe`` on the API) reactions use the times in rx_log_data.
+    """
+    try:
+        from meshcore.events import EventType
+    except ImportError:  # pragma: no cover - meshcore always ships it
+        return
+    cache = _sender_time_cache(hass)
+    done: set[int] = hass.data.setdefault(DOMAIN, {}).setdefault("_sender_time_apis", set())
+    for coordinator in list((hass.data.get(MESHCORE_DOMAIN) or {}).values()):
+        api = getattr(coordinator, "api", None)
+        subscribe = getattr(api, "subscribe", None)
+        if api is None or not callable(subscribe) or id(api) in done:
+            continue
+
+        def on_channel(event) -> None:
+            payload = getattr(event, "payload", None) or {}
+            cache.put(
+                SenderTimeCache.channel_key(payload.get("channel_idx", 0), channel_text(payload.get("text", ""))),
+                payload.get("sender_timestamp"),
+            )
+
+        def on_direct(event) -> None:
+            payload = getattr(event, "payload", None) or {}
+            cache.put(
+                SenderTimeCache.direct_key(payload.get("pubkey_prefix"), payload.get("text", "")),
+                payload.get("sender_timestamp"),
+            )
+
+        try:
+            removers = [
+                subscribe(EventType.CHANNEL_MSG_RECV, on_channel),
+                subscribe(EventType.CONTACT_MSG_RECV, on_direct),
+            ]
+        except Exception as ex:  # pragma: no cover - defensive
+            _LOGGER.debug("Could not subscribe to receive events: %s", ex)
+            continue
+        done.add(id(api))
+
+        def _remove(removers=removers, key=id(api)) -> None:
+            for remove in removers:
+                if callable(remove):
+                    remove()
+            done.discard(key)
+
+        entry.async_on_unload(_remove)
+
+
+def _record_sender_timestamp(hass: HomeAssistant, data: dict, record: dict) -> None:
+    """Put the packet's sender timestamp on a received message record."""
+    if record["outgoing"]:
+        return
+    cache = _sender_time_cache(hass)
+    text = record.get("text") or ""
+    if record.get("message_type") == "channel":
+        key = SenderTimeCache.channel_key(data.get("channel_idx", 0), text)
+    else:
+        key = SenderTimeCache.direct_key(data.get("pubkey_prefix"), text)
+    ts = cache.pop(key)
+    if ts is not None:
+        record["sender_timestamp"] = ts
+
+
 # ─── event handlers ─────────────────────────────────────────────────────
 
 
@@ -451,7 +538,7 @@ def _make_message_handler(hass: HomeAssistant, entry_id: str):
             # alongside the fetched copy → duplicate bubbles until the
             # message-store is rebuilt (e.g. on conversation switch).
             ts = data.get("timestamp", "")
-            sender = data.get("sender_name", "")
+            sender = message_sender(data)
             text = data.get("message") or data.get("text") or ""
             raw = f"{ts}|{sender}|{text}"
             msg_id = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
@@ -461,7 +548,7 @@ def _make_message_handler(hass: HomeAssistant, entry_id: str):
         # the dict.
         record: dict[str, Any] = {
             "id": msg_id,
-            "sender": data.get("sender_name") or data.get("sender") or "",
+            "sender": message_sender(data),
             "text": data.get("message") or data.get("text") or "",
             "timestamp": data.get("timestamp", ""),
             "message_type": data.get("message_type", ""),
@@ -536,6 +623,27 @@ def _make_message_handler(hass: HomeAssistant, entry_id: str):
         blocklist = hass.data.get(DOMAIN, {}).get("blocklist")
         if blocklist is not None and blocklist.is_blocked(record):
             _LOGGER.debug("Message from a blocked sender in %s not stored", entity_id)
+            return
+
+        _record_sender_timestamp(hass, data, record)
+
+        # A reaction is not chat: it goes onto the message it points at.
+        parsed = parse_reaction(record["text"], record.get("message_type") == "channel")
+        if parsed is not None:
+            reaction = {
+                "emoji": parsed.emoji,
+                "sender": record["sender"],
+                "time": record["timestamp"],
+                "outgoing": record["outgoing"],
+            }
+            attached = await store.attach_reaction(entity_id, parsed, reaction)
+            _LOGGER.debug(
+                "Reaction %s from %s in %s %s", parsed.emoji, record["sender"], entity_id,
+                "attached" if attached else "waits for its message",
+            )
+            hass.bus.async_fire(
+                EVENT_REACTION_UPDATED, {"entity_id": entity_id, "attached": attached}
+            )
             return
 
         # A late copy of our own channel message (a flood that looped

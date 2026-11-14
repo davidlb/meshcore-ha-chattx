@@ -15,6 +15,7 @@ import { imageLinks, splitLinks } from '../utils/links';
 import { loadImagePreviews } from '../utils/image-previews';
 import { imageFailed, markImageFailed, proxiedImage } from '../utils/image-proxy';
 import './image-viewer';
+import { QUICK_REACTIONS, groupReactions } from '../utils/reactions';
 
 /**
  * Generate a deterministic color from a string (e.g., pubkey prefix).
@@ -374,6 +375,56 @@ export class MessageBubble extends LitElement {
       max-width: 280px;
     }
 
+    .reactions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .reaction {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 18px;
+      background: rgba(127, 127, 127, 0.18);
+    }
+
+    .reaction.own {
+      outline: 1px solid var(--primary-color);
+    }
+
+    .reaction-count {
+      font-size: 11px;
+      opacity: 0.8;
+    }
+
+    .reaction-picker {
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 8px 4px;
+    }
+
+    .reaction-choice {
+      border: none;
+      background: transparent;
+      font-size: 24px;
+      line-height: 1;
+      padding: 6px;
+      border-radius: 50%;
+      cursor: pointer;
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    .reaction-choice:hover,
+    .reaction-choice:focus-visible {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.15);
+    }
+
     .message-dialog-action {
       display: flex;
       align-items: center;
@@ -509,7 +560,47 @@ export class MessageBubble extends LitElement {
         <div class="message-text">${this._renderTextWithMentions(msg.text, msg.mentions)}</div>
         ${this._renderImages(msg.text)}
         <div class="timestamp">${statusLabel ? html`<span class="delivery-status">${statusLabel}</span> · ` : ''}${ts}${scopeLabel ? html` · <span class="flood-scope">${scopeLabel}</span>` : ''}</div>
+        ${this._renderReactions(msg)}
       </div>
+    `;
+  }
+
+  /** Reaction chips under the bubble: emoji and count, senders on hover. */
+  private _renderReactions(msg: ChatMessage) {
+    const groups = groupReactions(msg.reactions);
+    if (groups.length === 0) return html``;
+    return html`<div class="reactions">
+      ${groups.map((g) => html`<span class="reaction ${g.own ? 'own' : ''}" title=${g.senders.join(', ')}>
+        ${g.emoji}${g.count > 1 ? html`<span class="reaction-count">${g.count}</span>` : ''}
+      </span>`)}
+    </div>`;
+  }
+
+  /** Stored messages only: live placeholders have no send time on the backend yet. */
+  private _canReact(msg: ChatMessage): boolean {
+    return !msg.isSystem && !msg.id.startsWith('rt_') && !msg.id.startsWith('optimistic_');
+  }
+
+  private _react(msg: ChatMessage, emoji: string) {
+    this.dispatchEvent(new CustomEvent('react-to-message', {
+      detail: { messageId: msg.id, emoji },
+      bubbles: true,
+      composed: true,
+    }));
+    this._closeDialog();
+  }
+
+  /** The quick reaction row of the message dialog, and who reacted already. */
+  private _renderReactionRow(msg: ChatMessage, footerStyle: string) {
+    const groups = groupReactions(msg.reactions);
+    return html`
+      ${this._canReact(msg) ? html`<div class="reaction-picker" role="group" aria-label=${t('React')}>
+        ${QUICK_REACTIONS.map((emoji) => html`<button class="reaction-choice" title=${t('React with {emoji}', { emoji })}
+          @click=${() => this._react(msg, emoji)}>${emoji}</button>`)}
+      </div>` : html``}
+      ${groups.length > 0 ? html`<div style=${footerStyle}>
+        ${groups.map((g) => html`<div>${g.emoji} ${g.senders.join(', ')}</div>`)}
+      </div>` : html``}
     `;
   }
 
@@ -795,6 +886,7 @@ export class MessageBubble extends LitElement {
             <button class="message-dialog-close" aria-label=${t('Close')} title=${t('Close')}
               @click=${() => this._closeDialog()}>✕</button>
           </div>
+          ${this._renderReactionRow(msg, footerStyle)}
           <button class="message-dialog-action" @click=${() => this._copyText(msg.text)}>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="vertical-align: -2px; margin-right: 4px;"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>${t('Copy Text')}
           </button>

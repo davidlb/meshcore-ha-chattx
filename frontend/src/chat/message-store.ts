@@ -1,3 +1,4 @@
+import { isReactionText } from '../utils/reactions';
 import { t } from '../i18n';
 import { isBlockedMessage } from '../utils/blocklist';
 import type {
@@ -659,6 +660,15 @@ export class MessageStore {
       );
       unsubs.push(unsubDelivery);
 
+      // A reaction was put on one of this conversation's messages.
+      const unsubReaction = await this._hass.connection.subscribeEvents(
+        (event: HassEvent) => {
+          if (event.data.entity_id === entityId) this._debouncedFetch(entityId);
+        },
+        'meshcore_chattx_reaction_updated',
+      );
+      unsubs.push(unsubReaction);
+
       this._realtimeSubscriptions = unsubs;
     } catch (err) {
       unsubs.forEach((fn) => fn());
@@ -680,8 +690,18 @@ export class MessageStore {
     ) {
       return;
     }
-    const sender = (eventData.sender_name ?? eventData.sender) as string;
+    // Same fallback as the backend's message_sender(), so a DM from a contact
+    // without an advertised name shows at once and keeps a matching id.
+    const sender = String(
+      eventData.sender_name || eventData.sender || eventData.pubkey_prefix
+      || eventData.contact_public_key || 'Unknown',
+    );
     const text = (eventData.message ?? eventData.text) as string;
+    // A reaction is not a chat bubble: the backend puts it on its message.
+    if (isReactionText(text, eventData.message_type === 'channel')) {
+      if (this._entityId) this._debouncedFetch(this._entityId);
+      return;
+    }
     const isOutgoing = sender === this._config.node_name;
 
     // Skip outgoing messages — they are already shown via the optimistic path.

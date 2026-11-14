@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} ripetitore|{n} ripetitori",
   "updated {when}": "aggiornato {when}",
   "Update failed: {error}": "Aggiornamento non riuscito: {error}",
-  "Update now": "Aggiorna ora"
+  "Update now": "Aggiorna ora",
+  "React": "Reagisci",
+  "React with {emoji}": "Reagisci con {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Impossibile reagire a questo messaggio: l'ora di invio non è nota.",
+  "The reaction could not be sent: {error}": "Impossibile inviare la reazione: {error}",
+  "sending failed": "invio non riuscito"
 }

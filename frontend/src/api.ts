@@ -102,6 +102,25 @@ export async function sendChannelMessage(
  * See ``sendChannelMessage`` above for the rationale on threading
  * ``entryId`` through to upstream ``meshcore.send_message``.
  */
+/**
+ * The text of a reaction to a stored message, built by the backend (it knows
+ * the message's send time). Throws when the message cannot be reacted to.
+ */
+export async function getReactionText(
+  hass: HomeAssistant,
+  entityId: string,
+  messageId: string,
+  emoji: string,
+): Promise<string> {
+  const result = await hass.callWS<{ text: string }>({
+    type: 'meshcore_chattx/reaction_text',
+    entity_id: entityId,
+    message_id: messageId,
+    emoji,
+  });
+  return result.text;
+}
+
 export async function sendDirectMessage(
   hass: HomeAssistant,
   pubkeyPrefix: string,

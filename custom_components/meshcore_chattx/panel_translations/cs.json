@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} repeater|{n} repeatery|{n} repeaterů",
   "updated {when}": "aktualizováno {when}",
   "Update failed: {error}": "Aktualizace selhala: {error}",
-  "Update now": "Aktualizovat teď"
+  "Update now": "Aktualizovat teď",
+  "React": "Reagovat",
+  "React with {emoji}": "Reagovat {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Na tuto zprávu nelze reagovat: není známý čas jejího odeslání.",
+  "The reaction could not be sent: {error}": "Reakci se nepodařilo odeslat: {error}",
+  "sending failed": "odeslání selhalo"
 }

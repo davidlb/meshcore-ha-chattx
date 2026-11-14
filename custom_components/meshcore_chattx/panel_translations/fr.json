@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} répéteur|{n} répéteurs",
   "updated {when}": "mis à jour {when}",
   "Update failed: {error}": "Échec de la mise à jour : {error}",
-  "Update now": "Mettre à jour"
+  "Update now": "Mettre à jour",
+  "React": "Réagir",
+  "React with {emoji}": "Réagir avec {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Impossible de réagir à ce message : son heure d'envoi est inconnue.",
+  "The reaction could not be sent: {error}": "La réaction n'a pas pu être envoyée : {error}",
+  "sending failed": "échec de l'envoi"
 }

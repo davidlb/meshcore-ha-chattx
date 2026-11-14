@@ -45,6 +45,7 @@ from .image_upload import async_register_image_upload_commands
 from .image_proxy import async_register_image_proxy
 from .ui_settings import async_register_ui_settings_commands
 from .sensor import SIGNAL_TOTAL_EXCLUSIONS_CHANGED
+from .reactions import build_reaction, is_single_emoji, message_hash, reaction_sender_timestamp
 from .radio_compat import (
     cache_self_info,
     contact_by_prefix,
@@ -493,6 +494,7 @@ def async_register_ws_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_get_quick_messages)
     websocket_api.async_register_command(hass, ws_set_quick_messages)
     websocket_api.async_register_command(hass, ws_get_heard_reply)
+    websocket_api.async_register_command(hass, ws_reaction_text)
     websocket_api.async_register_command(hass, ws_shorten_url)
     websocket_api.async_register_command(hass, ws_set_heard_reply)
     websocket_api.async_register_command(hass, ws_mark_read)
@@ -1863,6 +1865,49 @@ async def ws_set_quick_messages(hass, connection, msg):
         connection.send_result(msg["id"], {"messages": store.get()})
     except Exception as ex:
         _ws_send_error_safe(connection, msg["id"], ex, handler="ws_set_quick_messages")
+
+
+# ─── meshcore/reaction_text ─────────────────────────────────────────────
+# The wire text of a reaction to a stored message (MeshCore One format).
+# The panel sends it like any other message.
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "meshcore_chattx/reaction_text",
+        vol.Required("entity_id"): str,
+        vol.Required("message_id"): str,
+        vol.Required("emoji"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_reaction_text(hass, connection, msg):
+    """Return {text} for a reaction, or an error when it cannot be addressed."""
+    if not is_single_emoji(msg["emoji"]):
+        connection.send_error(msg["id"], "invalid_format", "Not a single emoji")
+        return
+    store = _get_store(hass, None)
+    if store is None:
+        connection.send_error(msg["id"], "not_found", "Integration is not set up yet")
+        return
+    message = await store.find_message(msg["entity_id"], msg["message_id"])
+    if message is None:
+        connection.send_error(msg["id"], "not_found", "Message not found")
+        return
+    ts = reaction_sender_timestamp(message)
+    if ts is None:
+        connection.send_error(
+            msg["id"], "no_sender_time",
+            "The send time of this message is not known, so other apps could not match a reaction",
+        )
+        return
+    is_channel = message.get("message_type") == "channel"
+    text = build_reaction(
+        msg["emoji"],
+        message_hash(message.get("text") or "", ts),
+        (message.get("sender") or "") if is_channel else None,
+    )
+    connection.send_result(msg["id"], {"text": text})
 
 
 # ─── meshcore/heard_reply ───────────────────────────────────────────────

@@ -81,6 +81,14 @@ export interface LateEcho {
   path_hash_size?: number;
 }
 
+/** An emoji reaction kept on the message it points at. */
+export interface MessageReaction {
+  emoji: string;
+  sender: string;
+  time: string;
+  outgoing?: boolean;
+}
+
 export interface StoredMessage {
   id: string;
   sender: string;
@@ -118,6 +126,8 @@ export interface StoredMessage {
   resends?: LateEcho[];
   /** Automatic retries of an own direct message the recipient did not confirm. */
   retries?: Array<{ id?: string; sent_at?: string }>;
+  /** Emoji reactions to this message (MeshCore One format). */
+  reactions?: MessageReaction[];
   /** Present on search results only */
   entity_id?: string;
   /** Present on search results only */
@@ -167,6 +177,8 @@ export interface ChatMessage {
   lateEchoes?: LateEcho[];
   /** Copies the sender sent again, kept on this message. */
   resends?: LateEcho[];
+  /** Emoji reactions to this message. */
+  reactions?: MessageReaction[];
   /**
    * Inbound region scope for a received channel message. "*" renders as
    * "🌐 all regions", a region name renders verbatim, absent renders

@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} repetidor|{n} repetidores",
   "updated {when}": "atualizado {when}",
   "Update failed: {error}": "Falha na atualização: {error}",
-  "Update now": "Atualizar agora"
+  "Update now": "Atualizar agora",
+  "React": "Reagir",
+  "React with {emoji}": "Reagir com {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Não é possível reagir a esta mensagem: a hora de envio é desconhecida.",
+  "The reaction could not be sent: {error}": "Não foi possível enviar a reação: {error}",
+  "sending failed": "falha no envio"
 }

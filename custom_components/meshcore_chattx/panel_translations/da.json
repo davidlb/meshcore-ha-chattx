@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} repeater|{n} repeatere",
   "updated {when}": "opdateret {when}",
   "Update failed: {error}": "Opdatering mislykkedes: {error}",
-  "Update now": "Opdater nu"
+  "Update now": "Opdater nu",
+  "React": "Reager",
+  "React with {emoji}": "Reager med {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Der kan ikke reageres på denne besked: dens afsendelsestid er ukendt.",
+  "The reaction could not be sent: {error}": "Reaktionen kunne ikke sendes: {error}",
+  "sending failed": "afsendelse mislykkedes"
 }

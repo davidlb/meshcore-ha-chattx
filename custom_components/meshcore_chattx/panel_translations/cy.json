@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} ailadroddydd|{n} ailadroddydd",
   "updated {when}": "diweddarwyd {when}",
   "Update failed: {error}": "Methodd y diweddariad: {error}",
-  "Update now": "Diweddaru nawr"
+  "Update now": "Diweddaru nawr",
+  "React": "Ymateb",
+  "React with {emoji}": "Ymateb gyda {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Ni ellir ymateb i'r neges hon: nid yw ei hamser anfon yn hysbys.",
+  "The reaction could not be sent: {error}": "Nid oedd modd anfon yr ymateb: {error}",
+  "sending failed": "methodd anfon"
 }

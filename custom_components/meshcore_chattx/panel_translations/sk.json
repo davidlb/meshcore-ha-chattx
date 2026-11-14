@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} repeater|{n} repeatery|{n} repeaterov",
   "updated {when}": "aktualizované {when}",
   "Update failed: {error}": "Aktualizácia zlyhala: {error}",
-  "Update now": "Aktualizovať teraz"
+  "Update now": "Aktualizovať teraz",
+  "React": "Reagovať",
+  "React with {emoji}": "Reagovať {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Na túto správu nemožno reagovať: nie je známy čas jej odoslania.",
+  "The reaction could not be sent: {error}": "Reakciu sa nepodarilo odoslať: {error}",
+  "sending failed": "odoslanie zlyhalo"
 }

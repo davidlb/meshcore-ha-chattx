@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} repeater|{n} repeatrar",
   "updated {when}": "uppdaterad {when}",
   "Update failed: {error}": "Uppdateringen misslyckades: {error}",
-  "Update now": "Uppdatera nu"
+  "Update now": "Uppdatera nu",
+  "React": "Reagera",
+  "React with {emoji}": "Reagera med {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Det går inte att reagera på detta meddelande: dess sändningstid är okänd.",
+  "The reaction could not be sent: {error}": "Reaktionen kunde inte skickas: {error}",
+  "sending failed": "sändningen misslyckades"
 }

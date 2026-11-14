@@ -261,3 +261,19 @@ def hoist_flood_scope(message: dict, wildcard_global: bool = False) -> bool:
         message["region_scope"] = region_scope
         changed = True
     return changed
+
+
+def message_sender(data: dict) -> str:
+    """The sender's name, or its key prefix when the name is not known yet.
+
+    A direct message from a contact without an advertised name would
+    otherwise be stored with an empty sender. From MeshCore Chat 0.3.2
+    (Matthew Wolter).
+    """
+    return str(
+        data.get("sender_name")
+        or data.get("sender")
+        or data.get("pubkey_prefix")
+        or data.get("contact_public_key")
+        or "Unknown"
+    )

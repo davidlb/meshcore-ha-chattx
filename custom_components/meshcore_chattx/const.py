@@ -38,6 +38,8 @@ EVENT_MESHCORE_MESSAGE: Final = "meshcore_message"
 EVENT_MESHCORE_DELIVERY_UPDATE: Final = "meshcore_delivery_update"
 EVENT_MESHCORE_CONNECTED: Final = "meshcore_connected"
 EVENT_MESHCORE_DISCONNECTED: Final = "meshcore_disconnected"
+# Fired after a reaction was put on a message (or queued for one).
+EVENT_REACTION_UPDATED: Final = "meshcore_chattx_reaction_updated"
 
 # ─── Storage keys ──────────────────────────────────────────────────────────
 # Per-conversation file naming. Distinct from the upstream `meshcore.*` namespace

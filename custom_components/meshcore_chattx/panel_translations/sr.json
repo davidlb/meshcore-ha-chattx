@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} repetitor|{n} repetitora|{n} repetitora",
   "updated {when}": "ažurirano {when}",
   "Update failed: {error}": "Ažuriranje nije uspelo: {error}",
-  "Update now": "Ažuriraj sada"
+  "Update now": "Ažuriraj sada",
+  "React": "Reaguj",
+  "React with {emoji}": "Reaguj sa {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Na ovu poruku nije moguće reagovati: vreme slanja nije poznato.",
+  "The reaction could not be sent: {error}": "Reakcija nije poslata: {error}",
+  "sending failed": "slanje nije uspelo"
 }

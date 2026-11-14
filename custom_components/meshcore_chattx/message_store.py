@@ -44,6 +44,7 @@ from .const import (
     STORAGE_KEY_INDEX,
     STORAGE_VERSION,
 )
+from .reactions import ParsedReaction, guessed_timestamp, message_hashes
 from .utils import (
     enrich_rx_log_entries,
     hoist_flood_scope,
@@ -353,6 +354,48 @@ def _echo_entry(record: dict, received: datetime) -> dict:
     return entry
 
 
+# ── reactions ─────────────────────────────────────────────────────────────
+
+REACTION_PENDING_SECONDS = 3600
+# How far back a reaction may point; older messages are not searched.
+REACTION_SEARCH_LIMIT = 500
+
+
+def _reaction_candidates(messages: list[dict], parsed: ParsedReaction) -> list[dict]:
+    """Messages a reaction may point at, newest first."""
+    found = []
+    for m in reversed(messages[-REACTION_SEARCH_LIMIT:]):
+        if parsed.target_sender is not None and m.get("sender") != parsed.target_sender:
+            continue
+        found.append(m)
+    return found
+
+
+def _find_reaction_target(messages: list[dict], parsed: ParsedReaction) -> dict | None:
+    """The message a reaction points at, by its hash."""
+    candidates = _reaction_candidates(messages, parsed)
+    for m in candidates:
+        if parsed.message_hash in message_hashes(m):
+            return m
+    # No known sender time matched: search near each message's time.
+    for m in candidates:
+        ts = guessed_timestamp(m, parsed.message_hash)
+        if ts is not None:
+            m.setdefault("sender_timestamp", ts)
+            return m
+    return None
+
+
+def _add_reaction(target: dict, reaction: dict) -> bool:
+    """Add a reaction to a message; False when it is already there."""
+    reactions = target.setdefault("reactions", [])
+    for r in reactions:
+        if r.get("sender") == reaction.get("sender") and r.get("emoji") == reaction.get("emoji"):
+            return False
+    reactions.append(reaction)
+    return True
+
+
 class MessageStore:
     """Per-conversation persistent message storage with lazy loading and idle eviction.
 
@@ -379,6 +422,9 @@ class MessageStore:
 
         # Per-conversation data — loaded on demand, evicted when idle.
         self._loaded_conversations: dict[str, list[dict]] = {}
+        self._load_lock = asyncio.Lock()
+        # Reactions whose target has not arrived yet, per conversation.
+        self._pending_reactions: dict[str, list[tuple[float, ParsedReaction, dict]]] = {}
         self._conversation_stores: dict[str, Store] = {}
         self._conversation_dirty: set[str] = set()
         self._conversation_last_access: dict[str, float] = {}
@@ -443,7 +489,17 @@ class MessageStore:
         if entity_id in self._loaded_conversations:
             self._conversation_last_access[entity_id] = time.time()
             return self._loaded_conversations[entity_id]
+        # Event listeners can load the same conversation at the same time; the
+        # second load would replace the list the first one already changed.
+        # Same fix as MeshCore Chat 0.3.2 (Matthew Wolter).
+        async with self._load_lock:
+            if entity_id in self._loaded_conversations:
+                self._conversation_last_access[entity_id] = time.time()
+                return self._loaded_conversations[entity_id]
+            return await self._load_conversation(entity_id)
 
+    async def _load_conversation(self, entity_id: str) -> list[dict]:
+        """Read a conversation from disk, migrate old records and cache it."""
         stored = await self._store_for(entity_id).async_load()
         messages: list[dict] = _coerce_message_list(stored, entity_id)
         # One-time backfill on first load — enriches old records that pre-date
@@ -536,6 +592,7 @@ class MessageStore:
         if len(messages) > max_per_conv:
             messages[:] = messages[-max_per_conv:]
 
+        self._apply_pending_reactions(entity_id, message)
         self._conversation_dirty.add(entity_id)
         self._schedule_conversation_save(entity_id)
 
@@ -565,9 +622,60 @@ class MessageStore:
                 # re-hoist the top-level field on this late patch — the
                 # same place repeater_count is kept correct.
                 hoist_flood_scope(m, wildcard_global_allowlisted(self.hass))
+                # The packet's send time may only come now.
+                self._apply_pending_reactions(entity_id, m)
                 self._conversation_dirty.add(entity_id)
                 self._schedule_conversation_save(entity_id)
                 return
+
+    async def find_message(self, entity_id: str, message_id: str) -> dict | None:
+        """A stored message by id, or None."""
+        messages = await self._ensure_loaded(entity_id)
+        for m in reversed(messages):
+            if m.get("id") == message_id:
+                return m
+        return None
+
+    async def attach_reaction(
+        self, entity_id: str, parsed: ParsedReaction, reaction: dict
+    ) -> bool:
+        """Put a reaction on its message; queue it when the message is not here yet.
+
+        Returns True when it was attached now.
+        """
+        messages = await self._ensure_loaded(entity_id)
+        target = _find_reaction_target(messages, parsed)
+        if target is None:
+            now = time.monotonic()
+            queue = [
+                p for p in self._pending_reactions.get(entity_id, [])
+                if now - p[0] < REACTION_PENDING_SECONDS
+            ]
+            queue.append((now, parsed, reaction))
+            self._pending_reactions[entity_id] = queue[-200:]
+            return False
+        if _add_reaction(target, reaction):
+            self._conversation_dirty.add(entity_id)
+            self._schedule_conversation_save(entity_id)
+        return True
+
+    def _apply_pending_reactions(self, entity_id: str, message: dict) -> None:
+        """Attach queued reactions that point at a just-stored message."""
+        queue = self._pending_reactions.get(entity_id)
+        if not queue:
+            return
+        hashes = set(message_hashes(message))
+        if not hashes:
+            return
+        keep = []
+        for item in queue:
+            _, parsed, reaction = item
+            sender_ok = parsed.target_sender is None or parsed.target_sender == message.get("sender")
+            if sender_ok and parsed.message_hash in hashes:
+                _add_reaction(message, reaction)
+            else:
+                keep.append(item)
+        self._pending_reactions[entity_id] = keep
 
     async def attach_late_echo(self, entity_id: str, record: dict) -> bool:
         """Keep a late copy of our own channel message on the original.

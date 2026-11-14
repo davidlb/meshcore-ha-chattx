@@ -725,5 +725,10 @@
   "{n} repeaters": "{n} toistin|{n} toistinta",
   "updated {when}": "päivitetty {when}",
   "Update failed: {error}": "Päivitys epäonnistui: {error}",
-  "Update now": "Päivitä nyt"
+  "Update now": "Päivitä nyt",
+  "React": "Reagoi",
+  "React with {emoji}": "Reagoi {emoji}",
+  "This message cannot get a reaction: its send time is not known.": "Tähän viestiin ei voi reagoida: sen lähetysaikaa ei tiedetä.",
+  "The reaction could not be sent: {error}": "Reaktiota ei voitu lähettää: {error}",
+  "sending failed": "lähetys epäonnistui"
 }
