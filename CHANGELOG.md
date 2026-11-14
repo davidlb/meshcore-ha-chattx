@@ -4,6 +4,17 @@ All notable changes to **MeshCore Chattx for Home Assistant**, a fork of MeshCor
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-14
+
+### Added
+
+- Emoji reactions on messages, compatible with MeshCore One, MeshCore Open and KiekR ([MeshCore One reactions format](https://github.com/Avi0n/MeshCoreOne/blob/main/docs/Reactions.md)). Open a message and pick 👍 ❤️ 😂 😮 😢 or 🙏. Reactions show as chips under the message, and the message dialog lists who reacted. A received reaction is not shown as a chat message and does not count as unread; one that arrives before its message waits for it up to an hour. To address a message, a reaction needs the time the sender's radio put into it: Chattx now takes it from the radio for every received message, from the repeat data for older channel messages, and from the send time for our own. Some older direct messages cannot get a reaction for that reason. Requested in #1 by @davidlb.
+
+### Fixed
+
+- Two events loading the same conversation at once could each read it from disk, and the second copy replaced messages the first had just added. Loading now waits its turn. Taken from MeshCore Chat 0.3.2, thanks to Matthew Wolter ([@mwolter805](https://github.com/mwolter805)).
+- A direct message from a contact without an advertised name was stored with an empty sender and did not show up live. The sender's key prefix is used instead. Taken from MeshCore Chat 0.3.2, thanks to Matthew Wolter.
+
 ## [0.19.0] - 2026-11-11
 
 ### Added
