@@ -2999,7 +2999,8 @@ let e,t,o,i,r,s,a,n,l,d,c,u,h,p,m,g,v,f,y,_,b,x,w,k,$,C,F,B,A,E,S,D,M,P,z,I,R,O,
     }
 
     .message-dialog {
-      background: #333;
+      background: var(--card-background-color, #fff);
+      color: var(--primary-text-color);
       border: 2px solid var(--primary-color, #03a9f4);
       border-radius: 12px;
       box-shadow: 0 0 20px rgba(var(--rgb-primary-color, 3, 169, 244), 0.3);
@@ -3020,7 +3021,7 @@ let e,t,o,i,r,s,a,n,l,d,c,u,h,p,m,g,v,f,y,_,b,x,w,k,$,C,F,B,A,E,S,D,M,P,z,I,R,O,
       z-index: 2;
       display: flex;
       align-items: center;
-      background: #333;
+      background: var(--card-background-color, #fff);
       border-bottom: 1px solid var(--divider-color, #e0e0e0);
     }
 

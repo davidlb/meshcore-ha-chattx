@@ -319,7 +319,8 @@ export class MessageBubble extends LitElement {
     }
 
     .message-dialog {
-      background: #333;
+      background: var(--card-background-color, #fff);
+      color: var(--primary-text-color);
       border: 2px solid var(--primary-color, #03a9f4);
       border-radius: 12px;
       box-shadow: 0 0 20px rgba(var(--rgb-primary-color, 3, 169, 244), 0.3);
@@ -340,7 +341,7 @@ export class MessageBubble extends LitElement {
       z-index: 2;
       display: flex;
       align-items: center;
-      background: #333;
+      background: var(--card-background-color, #fff);
       border-bottom: 1px solid var(--divider-color, #e0e0e0);
     }
 
