@@ -24,7 +24,8 @@
 | **Images and links** | – | ✅ **Paste an image, it is uploaded and shown in the conversation; links are clickable** |
 | **Bytes left in a message** | – | ✅ **Counter in UTF-8 bytes, as the radio counts** |
 | **Send without diacritics** | – | ✅ **One-tap switch** |
-| **Emoji and quick messages** | – | ✅ **Pickers next to the message field** |
+| **Emoji and quick messages** | – | ✅ **Behind + next to the message field, with image and location** |
+| **Mentions** | – | ✅ **Name suggestions after "@"** |
 | **Hop information** | In the message dialog | ✅ **Hop count and path size on each message** |
 | **Conversation list** | Contact ID or channel number | ✅ **Readable initials, newest first, age of the last message, IDs can be hidden** |
 | **Language** | English | ✅ **19 languages, automatic or chosen in Settings, easy to correct on GitHub** |
@@ -80,6 +81,9 @@ These features were built by [Michal Šiman](https://github.com/michalsiman) ([O
 
 **Writing messages**
 
+- A small composer: +, the message field and Send with the bytes left above it; + opens a strip with quick messages, without diacritics, image, location and emoji
+- Name suggestions after "@": the radio's contacts and everyone who wrote in the open conversation; Enter or Tab inserts "@[Name] "
+- Send a location with 📍: the radio's position, Home Assistant's home or a place picked on the map; received locations open on the map
 - Bytes-left counter that counts in UTF-8 bytes, as the radio does
 - A message too long for one is sent in numbered parts ("… 1/3", "… 2/3", "… 3/3"), at most 5, a few seconds apart; the counter shows how many, for example "3×"
 - Emoji reactions on messages (👍 ❤️ 😂 😮 😢 🙏 in the message dialog), in the MeshCore One format, so they work with MeshCore One, MeshCore Open and KiekR
@@ -147,11 +151,27 @@ These use demo data, and the names and values are made up.
 </tr>
 <tr>
 <td><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-reactions.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-reactions.png" alt="Quick reactions in the message dialog"></a></td>
-<td><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-composer.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-composer.png" alt="Emoji picker, bytes-left counter and diacritics switch"></a></td>
+<td><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-mentions.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-mentions.png" alt="Name suggestions after @"></a></td>
 </tr>
 <tr>
 <td><b>Reactions</b> — pick an emoji in the message dialog; reactions show as chips under the message and the dialog lists who reacted. Compatible with MeshCore One, MeshCore Open and KiekR.</td>
-<td><b>Writing</b> — quick messages and the diacritics switch on the left, emoji and bytes left on the right.</td>
+<td><b>"@" suggestions</b> — typing "@a" offers contacts and the people of the conversation; Enter, Tab or a tap inserts "@[Name] ".</td>
+</tr>
+<tr>
+<td><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-composer-closed.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-composer-closed.png" alt="Composer with the + button closed"></a></td>
+<td><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-composer.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-composer.png" alt="Composer with the + strip open"></a></td>
+</tr>
+<tr>
+<td><b>Composer</b> — one row: +, the message field (one line while empty, growing as you type) and Send with the bytes left above it.</td>
+<td><b>Behind +</b> — quick messages ⚡, without diacritics á→a, image 📎, location 📍 and emoji; a dot on + shows that "without diacritics" is on.</td>
+</tr>
+<tr>
+<td align="center"><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-mobile-composer.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-mobile-composer.png" alt="Composer on a phone" width="260"></a></td>
+<td align="center"><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-mobile-composer-tools.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-mobile-composer-tools.png" alt="Composer tools on a phone" width="260"></a></td>
+</tr>
+<tr>
+<td align="center"><b>Phone</b> — more of the conversation fits on the screen.</td>
+<td align="center"><b>Phone, + open</b> — the tools in one strip above the field.</td>
 </tr>
 <tr>
 <td><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-image-upload.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-image-upload.png" alt="Dialog for sending an image"></a></td>
