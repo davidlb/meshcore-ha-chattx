@@ -4,9 +4,15 @@ All notable changes to **MeshCore Chattx for Home Assistant**, a fork of MeshCor
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-16
+
+### Added
+
+- A message too long for one is sent in numbered parts ("… 1/3", "… 2/3", "… 3/3"), at most 5, five seconds apart so each spreads before the next. The byte counter shows how many messages it will be (for example "3×") and the part being sent. When a part fails, the rest goes back to the composer.
+
 ### Fixed
 
-- Reacting to a received direct message failed with "its send time is not known": the message could be stored before Chattx had noted the sender's time from the radio. A direct message now waits up to half a second for it. Direct messages received before this fix still cannot get a reaction.
+- Reacting to a received direct message failed with "its send time is not known": the message could be stored before Chattx had noted the sender's time from the radio. A direct message now waits up to half a second for it. Direct messages received before this fix still cannot get a reaction. Thanks to @davidlb (#3).
 
 ## [0.20.0] - 2026-11-14
 
