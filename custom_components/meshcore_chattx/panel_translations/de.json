@@ -744,5 +744,7 @@
   "Open in OpenStreetMap": "In OpenStreetMap öffnen",
   "Send a location": "Standort senden",
   "Insert into message": "In die Nachricht einfügen",
-  "MECP emergency message": "MECP-Notfallnachricht"
+  "MECP emergency message": "MECP-Notfallnachricht",
+  "Names": "Namen",
+  "More: quick messages, emoji, image, location, without diacritics": "Mehr: Schnellnachrichten, Emoji, Bild, Standort, ohne Diakritika"
 }

@@ -38,7 +38,9 @@ export class EmojiPicker extends LitElement {
     .menu {
       position: absolute;
       bottom: calc(100% + 8px);
-      right: 0;
+      /* Opens to the left of the button; a button at the left sets these the other way round. */
+      left: var(--emoji-menu-left, auto);
+      right: var(--emoji-menu-right, 0);
       z-index: 20;
       display: grid;
       grid-template-columns: repeat(auto-fill, 38px);

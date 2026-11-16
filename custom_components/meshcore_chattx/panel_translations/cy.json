@@ -744,5 +744,7 @@
   "Open in OpenStreetMap": "Agor yn OpenStreetMap",
   "Send a location": "Anfon lleoliad",
   "Insert into message": "Mewnosod yn y neges",
-  "MECP emergency message": "Neges argyfwng MECP"
+  "MECP emergency message": "Neges argyfwng MECP",
+  "Names": "Enwau",
+  "More: quick messages, emoji, image, location, without diacritics": "Mwy: negeseuon cyflym, emoji, llun, lleoliad, heb acenion"
 }

@@ -251,6 +251,14 @@ async function mountChatPage(opts: {
   return page;
 }
 
+/** Mount the page with the composer's + strip open, where the tools live. */
+async function mountWithTools(opts: Parameters<typeof mountChatPage>[0]) {
+  const page = await mountChatPage(opts);
+  page.shadowRoot!.querySelector<HTMLButtonElement>('.tools-toggle')!.click();
+  await page.updateComplete;
+  return page;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -977,9 +985,9 @@ describe('buttons next to the message field', () => {
   };
 
   it('do not take the focus', async () => {
-    const page = await mountChatPage({ selectedId: '0' });
+    const page = await mountWithTools({ selectedId: '0' });
     const root = page.shadowRoot!;
-    for (const selector of ['.diacritics-toggle', '.send-button', '.byte-counter', 'chattx-emoji-picker', 'chattx-quick-message-picker']) {
+    for (const selector of ['.tools-toggle', '.diacritics-toggle', '.send-button', '.byte-counter', 'chattx-emoji-picker', 'chattx-quick-message-picker']) {
       expect(press(root.querySelector(selector)!).defaultPrevented, selector).toBe(true);
     }
   });
@@ -1038,7 +1046,7 @@ describe('picking an emoji', () => {
   }
 
   async function typed(text: string) {
-    const page = await mountChatPage({ selectedId: '0' });
+    const page = await mountWithTools({ selectedId: '0' });
     const area = page.shadowRoot!.querySelector('textarea')!;
     area.value = text;
     area.dispatchEvent(new Event('input'));
@@ -1112,7 +1120,7 @@ describe('diacritics switch', () => {
 
   it('leaves the text alone while off', async () => {
     const api = await import('../src/api');
-    const page = await mountChatPage({ selectedId: '0' });
+    const page = await mountWithTools({ selectedId: '0' });
     expect(toggle(page).getAttribute('aria-pressed')).toBe('false');
 
     await type(page, 'čau');
@@ -1124,7 +1132,7 @@ describe('diacritics switch', () => {
 
   it('sends stripped text, keeps the typed text until then, and counts what goes out', async () => {
     const api = await import('../src/api');
-    const page = await mountChatPage({ selectedId: '0' });
+    const page = await mountWithTools({ selectedId: '0' });
     const counter = () => Number(page.shadowRoot!.querySelector('.byte-counter')!.textContent);
 
     await type(page, 'čau');
@@ -1142,11 +1150,11 @@ describe('diacritics switch', () => {
   });
 
   it('remembers the state for the next page load', async () => {
-    const first = await mountChatPage({ selectedId: '0' });
+    const first = await mountWithTools({ selectedId: '0' });
     toggle(first).click();
     await first.updateComplete;
 
-    const second = await mountChatPage({ selectedId: '0' });
+    const second = await mountWithTools({ selectedId: '0' });
     expect(toggle(second).getAttribute('aria-pressed')).toBe('true');
   });
 });

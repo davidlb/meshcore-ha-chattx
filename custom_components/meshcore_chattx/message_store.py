@@ -547,6 +547,22 @@ class MessageStore:
         stored = await self._store_for(entity_id).async_load()
         return _coerce_message_list(stored, entity_id)
 
+    async def conversation_senders(self, entity_id: str) -> list[str]:
+        """Senders of received messages in one conversation, the latest first.
+
+        For the "@" name suggestions: the open conversation is in memory
+        already, so this reads nothing from disk.
+        """
+        names: list[str] = []
+        seen: set[str] = set()
+        for m in reversed(await self._ensure_loaded(entity_id)):
+            name = m.get("sender") or ""
+            if m.get("outgoing") or not name or name == "Unknown" or name in seen:
+                continue
+            seen.add(name)
+            names.append(name)
+        return names
+
     # ── public API: writes ─────────────────────────────────────────────────
 
     async def store_message(self, entity_id: str, message: dict) -> None:

@@ -32,7 +32,9 @@ export class QuickMessagePicker extends LitElement {
     .menu {
       position: absolute;
       bottom: calc(100% + 8px);
-      left: 0;
+      /* Opens to the right of the button; a button at the right edge sets these the other way round. */
+      left: var(--quick-message-menu-left, 0);
+      right: var(--quick-message-menu-right, auto);
       z-index: 20;
       width: min(320px, 80vw);
       max-height: 280px;

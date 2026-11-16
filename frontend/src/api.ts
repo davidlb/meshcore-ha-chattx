@@ -121,6 +121,19 @@ export async function getReactionText(
   return result.text;
 }
 
+/** Everyone who wrote in one conversation, the latest first. */
+export async function getConversationSenders(hass: HomeAssistant, entityId: string): Promise<string[]> {
+  try {
+    const result = await hass.callWS<{ names: string[] }>({
+      type: 'meshcore_chattx/get_conversation_senders',
+      entity_id: entityId,
+    });
+    return result.names ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function sendDirectMessage(
   hass: HomeAssistant,
   pubkeyPrefix: string,

@@ -744,5 +744,7 @@
   "Open in OpenStreetMap": "Άνοιγμα στο OpenStreetMap",
   "Send a location": "Αποστολή τοποθεσίας",
   "Insert into message": "Εισαγωγή στο μήνυμα",
-  "MECP emergency message": "Μήνυμα έκτακτης ανάγκης MECP"
+  "MECP emergency message": "Μήνυμα έκτακτης ανάγκης MECP",
+  "Names": "Ονόματα",
+  "More: quick messages, emoji, image, location, without diacritics": "Περισσότερα: γρήγορα μηνύματα, emoji, εικόνα, τοποθεσία, χωρίς τόνους"
 }

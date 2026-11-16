@@ -13,7 +13,8 @@ import { loadShowMessagePreview, saveShowMessagePreview } from '../utils/message
 import { longLink } from '../utils/links';
 import { loadDraft, saveDraft } from '../utils/drafts';
 import { discoverChannelEntity, discoverContactEntity } from '../chat/entity-resolver';
-import { getReactionText, getRepeaterLoginState, sendDirectMessage, sendChannelMessage, shortenUrl } from '../api';
+import { getContacts, getConversationSenders, getReactionText, getRepeaterLoginState, sendDirectMessage, sendChannelMessage, shortenUrl } from '../api';
+import { buildCandidates, insertMention, mentionAt, suggestNames, type MentionQuery, type NameCandidate } from '../utils/mentions';
 import {
   AT_BOTTOM_THRESHOLD_PX,
   LAZY_LOAD_TRIGGER_PX,
@@ -83,6 +84,16 @@ export class ChatPage extends LitElement {
   /** Image chosen or pasted for upload; the upload dialog is open while set. */
   @state() private _imageFile: Blob | null = null;
   @state() private _locationOpen = false;
+  /** The + strip of the composer is open. */
+  @state() private _toolsOpen = false;
+  /** The "@…" being typed, with the names it matches. */
+  @state() private _mention: MentionQuery | null = null;
+  @state() private _mentionNames: string[] = [];
+  @state() private _mentionIndex = 0;
+  private _nameCandidates: { at: number; contacts: Array<{ name: string; type: number }> } | null = null;
+  private _nameCandidatesLoading: Promise<void> | null = null;
+  /** Everyone who wrote in the open conversation (from the backend), by conversation. */
+  private _conversationSenders: { entityId: string; at: number; names: string[] } | null = null;
   @state() private _shortenError = '';
   @state() private _reactionError = '';
   /** While a long text goes out in parts: the part being sent and the count. */
@@ -183,6 +194,7 @@ export class ChatPage extends LitElement {
     }
 
     .input-area {
+      position: relative;
       display: flex;
       align-items: flex-end;
       gap: 8px;
@@ -190,6 +202,42 @@ export class ChatPage extends LitElement {
       border-top: 1px solid var(--divider-color, #e0e0e0);
       background: var(--input-bg);
       flex-shrink: 0;
+    }
+
+    .mention-suggestions {
+      position: absolute;
+      left: 56px;
+      bottom: calc(100% - 4px);
+      z-index: 5;
+      min-width: 220px;
+      max-width: min(420px, calc(100% - 72px));
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 4px 0;
+      background: var(--card-background-color, #fff);
+      border: 1px solid var(--divider-color, #e0e0e0);
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .mention-suggestions button {
+      display: block;
+      width: 100%;
+      padding: 8px 14px;
+      border: none;
+      background: transparent;
+      color: var(--primary-text-color);
+      font-size: 14px;
+      text-align: left;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mention-suggestions button.active,
+    .mention-suggestions button:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.15);
     }
 
     .input-area textarea {
@@ -221,6 +269,63 @@ export class ChatPage extends LitElement {
     .input-area textarea:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    .tools-toggle {
+      position: relative;
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      margin-bottom: 4px;
+      border: 1px solid var(--divider-color, #e0e0e0);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--primary-color, #03a9f4);
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    .tools-toggle.open {
+      transform: rotate(45deg);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.15);
+    }
+
+    .tools-dot {
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--primary-color, #03a9f4);
+    }
+
+    .tools-strip {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 100%;
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 6px 12px;
+      background: var(--input-bg, var(--card-background-color, #fff));
+      border-top: 1px solid var(--divider-color, #e0e0e0);
+      --quick-message-toggle-size: 32px;
+    }
+
+    /* Wide screens: the tools next to each other from the + button. */
+    @media (min-width: 700px) {
+      .tools-strip {
+        justify-content: flex-start;
+        gap: 18px;
+        padding-left: 12px;
+        --emoji-menu-left: 0;
+        --emoji-menu-right: auto;
+      }
     }
 
     .composer-tools {
@@ -296,6 +401,9 @@ export class ChatPage extends LitElement {
       align-items: center;
       gap: 2px;
       flex-shrink: 0;
+      --quick-message-toggle-size: 28px;
+      --quick-message-menu-left: auto;
+      --quick-message-menu-right: 0;
     }
 
     .byte-counter {
@@ -306,6 +414,17 @@ export class ChatPage extends LitElement {
       font-variant-numeric: tabular-nums;
       text-align: right;
       color: var(--secondary-text-color, #727272);
+    }
+
+    .send-column {
+      gap: 0;
+    }
+
+    .send-column .byte-counter {
+      min-width: 0;
+      padding-bottom: 2px;
+      text-align: center;
+      line-height: 1.1;
     }
 
     .byte-counter.parts {
@@ -322,8 +441,8 @@ export class ChatPage extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 44px;
-      height: 44px;
+      width: 38px;
+      height: 38px;
       border: none;
       border-radius: 50%;
       background: var(--primary-color, #03a9f4);
@@ -748,6 +867,7 @@ export class ChatPage extends LitElement {
   }
 
   updated(changedProperties: Map<string, unknown>) {
+    if (changedProperties.has('_inputText')) this._fitComposer();
     this._syncRepeaterLoginState();
     if (this._focusAfterSelect) {
       const textarea = this.shadowRoot?.querySelector<HTMLTextAreaElement>('.input-area textarea');
@@ -1025,6 +1145,19 @@ export class ChatPage extends LitElement {
     const remaining = this._remainingBytes();
     const parts = remaining < 0 ? this._messageParts() : null;
     const diacriticsLabel = t('Send without diacritics. The text changes when it is sent.');
+    // Everything but the message field, bytes left and Send sits behind +;
+    // the bytes-left counter sits right above Send.
+    const sendButton = html`
+        <button
+        class="send-button"
+        aria-label=${t('Send message')}
+        @click=${() => this._sendMessage()}
+        ?disabled=${this._sending || !!this._partProgress || !this.selectedId || !this._inputText.trim() || (remaining < 0 && !parts)}>
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L4.13399899,1.16151496 C3.34915502,0.9 2.40734225,0.9 1.77946707,1.4429026 C0.994623095,2.0752101 0.837654326,3.00778453 1.15159189,3.98029867 L3.03521743,10.4212916 C3.03521743,10.5783889 3.19218622,10.7354863 3.50612381,10.7354863 L16.6915026,11.5209733 C16.6915026,11.5209733 17.1624089,11.5209733 17.1624089,12.0492776 C17.1624089,12.5775818 16.6915026,12.4744748 16.6915026,12.4744748 Z"/>
+        </svg>
+      </button>
+    `;
     return html`
       <div class="chat-container" @reply-to-sender=${this._onReplyToSender} @resend-message=${this._onResendMessage} @react-to-message=${this._onReactToMessage} @scroll=${this._onChatScroll}>
         ${this._messageStore.loadingOlder
@@ -1073,37 +1206,32 @@ export class ChatPage extends LitElement {
         @close=${() => { this._locationOpen = false; }}
         @location-selected=${this._onLocationSelected}></chattx-location-dialog>
       <div class="input-area" @mousedown=${this._keepComposerFocus}>
-        <div class="composer-tools">
+        ${this._renderMentionSuggestions()}
+        <button
+          class=${this._toolsOpen ? 'tools-toggle open' : 'tools-toggle'}
+          title=${t('More: quick messages, emoji, image, location, without diacritics')}
+          aria-label=${t('More: quick messages, emoji, image, location, without diacritics')}
+          aria-expanded=${this._toolsOpen ? 'true' : 'false'}
+          ?disabled=${!this.selectedId}
+          @click=${() => { this._toolsOpen = !this._toolsOpen; }}>+${this._stripDiacritics ? html`<span class="tools-dot" title=${diacriticsLabel}></span>` : ''}</button>
+        ${this._toolsOpen ? html`<div class="tools-strip" @click=${this._onToolsStripClick}>
           <chattx-quick-message-picker
             .hass=${this.hass}
             ?disabled=${this._sending || !this.selectedId}
             @quick-message-selected=${this._onQuickMessageSelected}></chattx-quick-message-picker>
-          <button
-            class=${this._stripDiacritics ? 'diacritics-toggle on' : 'diacritics-toggle'}
-            title=${diacriticsLabel}
-            aria-label=${diacriticsLabel}
-            aria-pressed=${this._stripDiacritics ? 'true' : 'false'}
-            @click=${this._toggleStripDiacritics}>á→a</button>
-          <button
-            class="diacritics-toggle image-button"
-            title=${t('Send an image')}
-            aria-label=${t('Send an image')}
+          ${this._renderTextTools(diacriticsLabel)}
+          <chattx-emoji-picker
             ?disabled=${this._sending || !this.selectedId}
-            @click=${this._pickImage}>📎</button>
-          <button
-            class="diacritics-toggle image-button"
-            title=${t('Send a location')}
-            aria-label=${t('Send a location')}
-            ?disabled=${this._sending || !this.selectedId}
-            @click=${() => { this._locationOpen = true; }}>📍</button>
-          <input class="image-input" type="file" accept="image/*" hidden
-            @change=${(e: Event) => {
-              const input = e.target as HTMLInputElement;
-              if (input.files?.[0]) this._imageFile = input.files[0];
-              input.value = '';
-            }} />
-        </div>
+            @emoji-selected=${this._onEmojiSelected}></chattx-emoji-picker>
+        </div>` : html``}
+        <input class="image-input" type="file" accept="image/*" hidden
+          @change=${(e: Event) => {
+            const input = e.target as HTMLInputElement;
+            if (input.files?.[0]) this._imageFile = input.files[0];
+            input.value = '';
+          }} />
         <textarea
+          rows="1"
           @paste=${this._onPaste}
           placeholder=${t('Type a message...')}
           aria-label=${t('Message text. Press Enter to send, Shift+Enter for newline.')}
@@ -1111,8 +1239,15 @@ export class ChatPage extends LitElement {
           @input=${(e: Event) => {
             const ta = e.target as HTMLTextAreaElement;
             this._inputText = ta.value;
+            this._updateMention(ta);
           }}
+          @click=${(e: Event) => this._updateMention(e.target as HTMLTextAreaElement)}
+          @keyup=${(e: KeyboardEvent) => {
+            if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) this._updateMention(e.target as HTMLTextAreaElement);
+          }}
+          @blur=${() => { setTimeout(() => { this._mention = null; }, 150); }}
           @keydown=${(e: KeyboardEvent) => {
+            if (this._onMentionKey(e)) return;
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               this._sendMessage();
@@ -1120,10 +1255,7 @@ export class ChatPage extends LitElement {
           }}
           ?readonly=${this._sending || !!this._partProgress}
           ?disabled=${!this.selectedId}></textarea>
-        <div class="composer-counter">
-          <chattx-emoji-picker
-            ?disabled=${this._sending || !this.selectedId}
-            @emoji-selected=${this._onEmojiSelected}></chattx-emoji-picker>
+        <div class="composer-counter send-column">
           ${this._partProgress
             ? html`<span class="byte-counter parts" title=${t('Sending a long message in parts')}>${this._partProgress.part}/${this._partProgress.count}</span>`
             : parts
@@ -1132,16 +1264,8 @@ export class ChatPage extends LitElement {
               : html`<span
                   class=${remaining <= 0 ? 'byte-counter at-limit' : 'byte-counter'}
                   title=${t('Bytes left. Letters with diacritics take 2, emoji take 4. In channels your node name is part of the message.')}>${remaining}</span>`}
+          ${sendButton}
         </div>
-        <button
-          class="send-button"
-          aria-label=${t('Send message')}
-          @click=${() => this._sendMessage()}
-          ?disabled=${this._sending || !!this._partProgress || !this.selectedId || !this._inputText.trim() || (remaining < 0 && !parts)}>
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L4.13399899,1.16151496 C3.34915502,0.9 2.40734225,0.9 1.77946707,1.4429026 C0.994623095,2.0752101 0.837654326,3.00778453 1.15159189,3.98029867 L3.03521743,10.4212916 C3.03521743,10.5783889 3.19218622,10.7354863 3.50612381,10.7354863 L16.6915026,11.5209733 C16.6915026,11.5209733 17.1624089,11.5209733 17.1624089,12.0492776 C17.1624089,12.5775818 16.6915026,12.4744748 16.6915026,12.4744748 Z"/>
-          </svg>
-        </button>
       </div>
     `;
   }
@@ -1431,6 +1555,7 @@ export class ChatPage extends LitElement {
 
   /** Put a quick message in the composer for review; sending stays a separate step. */
   private async _onQuickMessageSelected(e: CustomEvent<{ message: string }>) {
+    this._toolsOpen = false;
     const current = this._inputText.trimEnd();
     this._inputText = current ? `${current} ${e.detail.message}` : e.detail.message;
     await this._focusInput();
@@ -1474,6 +1599,143 @@ export class ChatPage extends LitElement {
     }));
   }
 
+  // ─── "@" name suggestions ─────────────────────────────────────────────
+
+  /** Look for an "@…" at the cursor and offer the names it matches. */
+  private _updateMention(ta: HTMLTextAreaElement) {
+    const mention = mentionAt(ta.value, ta.selectionStart ?? ta.value.length);
+    if (!mention) {
+      this._mention = null;
+      return;
+    }
+    const prevQuery = this._mention?.query;
+    this._mention = mention;
+    if (prevQuery !== mention.query) this._mentionIndex = 0;
+    void this._loadNameCandidates().then(() => this._refreshMentionNames());
+    this._refreshMentionNames();
+  }
+
+  private _refreshMentionNames() {
+    if (!this._mention || !this._nameCandidates) {
+      this._mentionNames = [];
+      return;
+    }
+    // People from the open conversation, newest first: the loaded messages
+    // (also live ones), then everyone the backend has for it.
+    const recent: string[] = [];
+    const messages = this._messageStore?.messages ?? [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (!m.isOutgoing && !m.isSystem && m.sender && !recent.includes(m.sender)) recent.push(m.sender);
+    }
+    const entityId = this._messageStore?.entityId;
+    if (this._conversationSenders && this._conversationSenders.entityId === entityId) {
+      for (const name of this._conversationSenders.names) if (!recent.includes(name)) recent.push(name);
+    }
+    const candidates: NameCandidate[] = buildCandidates(this._nameCandidates.contacts, recent, this.config?.node_name ?? '');
+    this._mentionNames = suggestNames(this._mention.query, candidates);
+    if (this._mentionIndex >= this._mentionNames.length) this._mentionIndex = 0;
+  }
+
+  /** The radio's contacts (every node with an advert), read once a minute at most. */
+  private _loadNameCandidates(): Promise<void> {
+    if (!this.hass) return Promise.resolve();
+    const entityId = this._messageStore?.entityId;
+    const senders = this._conversationSenders;
+    if (entityId && (!senders || senders.entityId !== entityId || Date.now() - senders.at > 30000)) {
+      this._conversationSenders = { entityId, at: Date.now(), names: senders?.entityId === entityId ? senders.names : [] };
+      void getConversationSenders(this.hass, entityId).then((names) => {
+        if (this._conversationSenders?.entityId === entityId) {
+          this._conversationSenders = { entityId, at: Date.now(), names };
+          this._refreshMentionNames();
+        }
+      });
+    }
+    if (this._nameCandidates && Date.now() - this._nameCandidates.at < 60000) return Promise.resolve();
+    this._nameCandidatesLoading ??= getContacts(this.hass, this.config?.entry_id).then((contacts) => {
+      this._nameCandidates = {
+        at: Date.now(),
+        contacts: contacts.filter((c) => !!c.adv_name).map((c) => ({ name: c.adv_name, type: Number(c.type) })),
+      };
+    }).finally(() => { this._nameCandidatesLoading = null; });
+    return this._nameCandidatesLoading;
+  }
+
+  /** Arrows, Enter, Tab and Escape while names are offered; true when handled. */
+  private _onMentionKey(e: KeyboardEvent): boolean {
+    if (!this._mention || this._mentionNames.length === 0) return false;
+    const n = this._mentionNames.length;
+    if (e.key === 'ArrowDown') this._mentionIndex = (this._mentionIndex + 1) % n;
+    else if (e.key === 'ArrowUp') this._mentionIndex = (this._mentionIndex - 1 + n) % n;
+    else if (e.key === 'Enter' || e.key === 'Tab') this._pickMention(this._mentionNames[this._mentionIndex]);
+    else if (e.key === 'Escape') this._mention = null;
+    else return false;
+    e.preventDefault();
+    e.stopPropagation();
+    return true;
+  }
+
+  private async _pickMention(name: string) {
+    const textarea = this.shadowRoot?.querySelector<HTMLTextAreaElement>('.input-area textarea');
+    const mention = this._mention;
+    if (!mention) return;
+    const cursor = textarea?.selectionStart ?? this._inputText.length;
+    const result = insertMention(this._inputText, mention, cursor, name);
+    this._inputText = result.text;
+    this._mention = null;
+    await this.updateComplete;
+    textarea?.focus();
+    textarea?.setSelectionRange(result.cursor, result.cursor);
+  }
+
+  private _renderMentionSuggestions() {
+    if (!this._mention || this._mentionNames.length === 0) return html``;
+    return html`<div class="mention-suggestions" role="listbox" aria-label=${t('Names')}>
+      ${this._mentionNames.map((name, i) => html`<button role="option" aria-selected=${i === this._mentionIndex ? 'true' : 'false'}
+        class=${i === this._mentionIndex ? 'active' : ''}
+        @mousedown=${(e: Event) => e.preventDefault()}
+        @click=${() => this._pickMention(name)}>@${name}</button>`)}
+    </div>`;
+  }
+
+  /** One line while empty; grows with the text up to the CSS max-height, then scrolls. */
+  private _fitComposer() {
+    const ta = this.shadowRoot?.querySelector<HTMLTextAreaElement>('.input-area textarea');
+    if (!ta) return;
+    ta.style.height = 'auto';
+    if (ta.scrollHeight > ta.clientHeight) ta.style.height = `${ta.scrollHeight + 2}px`;
+  }
+
+  /** á→a, 📎 and 📍 in the + strip. */
+  private _renderTextTools(diacriticsLabel: string) {
+    return html`
+          <button
+            class=${this._stripDiacritics ? 'diacritics-toggle on' : 'diacritics-toggle'}
+            title=${diacriticsLabel}
+            aria-label=${diacriticsLabel}
+            aria-pressed=${this._stripDiacritics ? 'true' : 'false'}
+            @click=${this._toggleStripDiacritics}>á→a</button>
+          <button
+            class="diacritics-toggle image-button"
+            title=${t('Send an image')}
+            aria-label=${t('Send an image')}
+            ?disabled=${this._sending || !this.selectedId}
+            @click=${this._pickImage}>📎</button>
+          <button
+            class="diacritics-toggle image-button"
+            title=${t('Send a location')}
+            aria-label=${t('Send a location')}
+            ?disabled=${this._sending || !this.selectedId}
+            @click=${() => { this._locationOpen = true; }}>📍</button>
+    `;
+  }
+
+  /** The + strip closes after an image or location is chosen, or a quick message picked. */
+  private _onToolsStripClick(e: Event) {
+    const target = (e.composedPath()[0] as HTMLElement | undefined);
+    if (target?.closest?.('.image-button')) this._toolsOpen = false;
+  }
+
   /** Put a picked location into the message, with a space around it. */
   private async _onLocationSelected(e: CustomEvent<{ text: string }>) {
     this._locationOpen = false;
@@ -1494,6 +1756,7 @@ export class ChatPage extends LitElement {
   }
 
   private async _sendMessage() {
+    this._toolsOpen = false;
     if (this._sending || !this._inputText.trim() || !this.selectedId || !this.hass || !this.config) {
       return;
     }

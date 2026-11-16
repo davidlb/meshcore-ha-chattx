@@ -495,6 +495,7 @@ def async_register_ws_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_set_quick_messages)
     websocket_api.async_register_command(hass, ws_get_heard_reply)
     websocket_api.async_register_command(hass, ws_reaction_text)
+    websocket_api.async_register_command(hass, ws_get_conversation_senders)
     websocket_api.async_register_command(hass, ws_shorten_url)
     websocket_api.async_register_command(hass, ws_set_heard_reply)
     websocket_api.async_register_command(hass, ws_mark_read)
@@ -1909,6 +1910,24 @@ async def ws_reaction_text(hass, connection, msg):
     )
     connection.send_result(msg["id"], {"text": text})
 
+
+
+# ─── meshcore/get_conversation_senders ──────────────────────────────────
+# Everyone who wrote in one conversation, for the "@" name suggestions.
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "meshcore_chattx/get_conversation_senders",
+        vol.Required("entity_id"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_get_conversation_senders(hass, connection, msg):
+    """Return {names: [...]}, the latest sender first."""
+    store = _get_store(hass, None)
+    names = await store.conversation_senders(msg["entity_id"]) if store else []
+    connection.send_result(msg["id"], {"names": names[:500]})
 
 # ─── meshcore/heard_reply ───────────────────────────────────────────────
 # The quick reply text of the message dialog, the same in every browser.

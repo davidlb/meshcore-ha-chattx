@@ -744,5 +744,7 @@
   "Open in OpenStreetMap": "Otevřít v OpenStreetMap",
   "Send a location": "Poslat polohu",
   "Insert into message": "Vložit do zprávy",
-  "MECP emergency message": "Nouzová zpráva MECP"
+  "MECP emergency message": "Nouzová zpráva MECP",
+  "Names": "Jména",
+  "More: quick messages, emoji, image, location, without diacritics": "Další: rychlé zprávy, emoji, obrázek, poloha, bez diakritiky"
 }

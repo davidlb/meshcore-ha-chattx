@@ -744,5 +744,7 @@
   "Open in OpenStreetMap": "Åbn i OpenStreetMap",
   "Send a location": "Send en position",
   "Insert into message": "Indsæt i beskeden",
-  "MECP emergency message": "MECP-nødbesked"
+  "MECP emergency message": "MECP-nødbesked",
+  "Names": "Navne",
+  "More: quick messages, emoji, image, location, without diacritics": "Mere: hurtige beskeder, emoji, billede, position, uden diakritiske tegn"
 }
