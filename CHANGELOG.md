@@ -4,8 +4,17 @@ All notable changes to **MeshCore Chattx for Home Assistant**, a fork of MeshCor
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-16
+
+### Added
+
+- Send a location: 📍 next to the message field opens a dialog that takes the position saved in the radio, Home Assistant's home, or a place tapped on the map (drag and zoom as usual, offline map included), and puts it into the message as "📍 49.74512,13.37721" (about 23 bytes, readable in any client). A GPS receiver connected to Home Assistant is listed as coming later; the code is prepared for it.
+- Locations in received messages ("📍 lat,lon" or geo:) are links: they open the place on the map, online or offline, with its distance from you and a link to OpenStreetMap.
+- MECP emergency messages (Mesh Emergency Communication Protocol, as meshcore-tak-bridge for ATAK reads them, e.g. "MECP/0/M01 2pax P05 48.6520,20.1305") show their severity (MAYDAY, URGENT, SAFETY, ROUTINE) above the text, and their coordinates open on the map like any location.
+
 ### Changed
 
+- The parts of a long message no longer go out on a fixed five-second beat: the next part waits until our radio hears a repeater repeat the previous one (a direct message: its ACK), at least 2 and at most 15 seconds. A part that the nearest repeater missed reaches the mesh by a longer way, and the next part sent at once could get ahead of it (seen in the analyzer).
 - Manage → Channels: "Add channel" is now at the top of the list and stays in view while the list scrolls, instead of at the very end.
 
 ## [0.21.0] - 2026-11-16
