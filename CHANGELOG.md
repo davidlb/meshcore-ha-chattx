@@ -4,6 +4,12 @@ All notable changes to **MeshCore Chattx for Home Assistant**, a fork of MeshCor
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-11-16
+
+### Fixed
+
+- The message dialog had a fixed dark background, so it stood out in the light theme. It now uses the theme's card and text colours, and the overlay behind it is as dark as behind the other dialogs. Thanks to @davidlb (#4).
+
 ## [0.22.0] - 2026-11-16
 
 ### Added
