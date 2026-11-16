@@ -5,7 +5,9 @@
 **MeshCore Chattx** is a fork of [MeshCore Chat](https://github.com/mwolter805/meshcore-ha-chat) by Matt Wolter. It keeps the sidebar chat panel for the [MeshCore](https://meshcore.io) mesh radio network and adds repeater management, better message writing and proper phone support.
 
 > [!TIP]
-> **New in Chattx:** manage repeaters right from the chat, with login, settings, telemetry, neighbours, regions and a command terminal.
+> **Maps that work without internet.** The route of every message and all nodes with a position are drawn on a map that Home Assistant keeps locally: world borders and capitals, plus borders, regions, towns and peaks of the countries you choose (247 to pick from). Download it once in Settings → Map and the maps keep working when the internet is down, which is exactly when a mesh network matters.
+>
+> **Also new:** emoji reactions compatible with MeshCore One, long messages sent in numbered parts, images and links in the chat, and repeater management with login, settings, telemetry, neighbours, regions and a terminal.
 
 ## How it differs from the original
 
@@ -16,7 +18,11 @@
 | **Repeater telemetry and neighbours** | Devices tab, for repeaters set up as devices | ✅ **In the repeater's conversation, remembered with their age** |
 | **Repeater regions** | Single commands | ✅ **Region tree you can edit and save to the repeater** |
 | **Repeater commands** | Command catalog | ✅ **Terminal: type any command and read the reply** |
-| **Bytes left in a message** | – | ✅ **Counter that blocks messages that are too long** |
+| **Maps** | – | ✅ **Route of each message and all nodes on a map that works offline, without internet** |
+| **Reactions** | – | ✅ **👍 ❤️ 😂 on messages, compatible with MeshCore One, MeshCore Open and KiekR** |
+| **Long messages** | Refused | ✅ **Sent in numbered parts 1/3, 2/3, 3/3** |
+| **Images and links** | – | ✅ **Paste an image, it is uploaded and shown in the conversation; links are clickable** |
+| **Bytes left in a message** | – | ✅ **Counter in UTF-8 bytes, as the radio counts** |
 | **Send without diacritics** | – | ✅ **One-tap switch** |
 | **Emoji and quick messages** | – | ✅ **Pickers next to the message field** |
 | **Hop information** | In the message dialog | ✅ **Hop count and path size on each message** |
@@ -33,6 +39,27 @@
 It works as a **companion** to the [core meshcore integration](https://github.com/meshcore-dev/meshcore-ha), so install both. This integration does not drive the radio itself. It uses its own domain, `meshcore_chattx`, so it can be installed next to the original, and message history is not shared between them.
 
 > **Status:** in active development. See the [latest release](https://github.com/michalsiman/meshcore-ha-chattx/releases/latest) and the [changelog](CHANGELOG.md).
+
+## Maps without internet
+
+Chattx draws its maps from data kept in Home Assistant, so they work without internet:
+
+- **The route of a message**: the repeaters it went through, with each leg and the total distance
+- **All nodes** with a known position, in the Nodes tab
+- **What the map shows**: world borders and capitals, and for the countries you choose their borders, regions, towns and peaks (247 countries, Home Assistant's country and its neighbours suggested)
+- **Download once**: Settings → Map, a few hundred kB per country, stored in Home Assistant, not in the browser, so every phone and computer gets it
+- **Online or offline**: with internet the maps use OpenStreetMap through Home Assistant; without it they switch to the offline map on their own, or you can choose the offline map always
+
+<table>
+<tr>
+<td width="62%"><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-route-map-offline.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-route-map-offline.png" alt="Route of a message on the offline map"></a></td>
+<td align="center"><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-mobile-route-map-offline.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-mobile-route-map-offline.png" alt="Route on the offline map on a phone" width="260"></a></td>
+</tr>
+<tr>
+<td><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-nodes-map-offline.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-nodes-map-offline.png" alt="Nodes on the offline map"></a></td>
+<td><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-settings-map.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-settings-map.png" alt="Offline map download in Settings"></a></td>
+</tr>
+</table>
 
 ## What Chattx adds
 
@@ -53,7 +80,9 @@ These features were built by [Michal Šiman](https://github.com/michalsiman) ([O
 
 **Writing messages**
 
-- Bytes-left counter that counts in UTF-8 bytes and blocks messages that are too long
+- Bytes-left counter that counts in UTF-8 bytes, as the radio does
+- A message too long for one is sent in numbered parts ("… 1/3", "… 2/3", "… 3/3"), at most 5, a few seconds apart; the counter shows how many, for example "3×"
+- Emoji reactions on messages (👍 ❤️ 😂 😮 😢 🙏 in the message dialog), in the MeshCore One format, so they work with MeshCore One, MeshCore Open and KiekR
 - Long web addresses can be shortened with is.gd before sending; addresses in messages are clickable
 - Switch that sends text without diacritics, which leaves more room in a message
 - Emoji picker, inserting at the cursor
@@ -110,10 +139,18 @@ These use demo data, and the names and values are made up.
 <table>
 <tr>
 <td width="50%"><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-chat.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-chat.png" alt="Chat with an image preview, distances and a repeat count"></a></td>
-<td width="50%"><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-composer.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-composer.png" alt="Emoji picker, bytes-left counter and diacritics switch"></a></td>
+<td width="50%"><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-long-message.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-long-message.png" alt="A long message sent in numbered parts"></a></td>
 </tr>
 <tr>
-<td><b>Chat</b> — the newest message under each conversation, image previews, hop count, path size and the distance between the first and last repeater (with the route length in brackets) on messages, ×2 on a message its sender sent twice, and "Unheard" on an own message nobody repeated.</td>
+<td><b>Chat</b> — the newest message under each conversation, image previews, reactions, hop count, path size and the distance between the first and last repeater (with the route length in brackets) on messages, ×2 on a message its sender sent twice, and "Unheard" on an own message nobody repeated.</td>
+<td><b>Long messages</b> — a text too long for one message goes out in numbered parts; the counter shows "3×", and the parts follow each other a few seconds apart.</td>
+</tr>
+<tr>
+<td><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-reactions.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-reactions.png" alt="Quick reactions in the message dialog"></a></td>
+<td><a href="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-composer.png"><img src="https://raw.githubusercontent.com/michalsiman/meshcore-ha-chattx/main/assets/screenshots/chattx-composer.png" alt="Emoji picker, bytes-left counter and diacritics switch"></a></td>
+</tr>
+<tr>
+<td><b>Reactions</b> — pick an emoji in the message dialog; reactions show as chips under the message and the dialog lists who reacted. Compatible with MeshCore One, MeshCore Open and KiekR.</td>
 <td><b>Writing</b> — quick messages and the diacritics switch on the left, emoji and bytes left on the right.</td>
 </tr>
 <tr>

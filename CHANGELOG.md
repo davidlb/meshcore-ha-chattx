@@ -4,6 +4,10 @@ All notable changes to **MeshCore Chattx for Home Assistant**, a fork of MeshCor
 
 ## [Unreleased]
 
+### Changed
+
+- Manage → Channels: "Add channel" is now at the top of the list and stays in view while the list scrolls, instead of at the very end.
+
 ## [0.21.0] - 2026-11-16
 
 ### Added

@@ -499,7 +499,19 @@ export class ManageDialog extends LitElement {
       flex-shrink: 0;
     }
 
-    /* Add channel button at bottom */
+    /* Add channel button: first in the list and kept in view while scrolling */
+    .add-channel-bar {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--card-background-color, #fff);
+      border-bottom: 1px solid var(--divider-color, #e0e0e0);
+    }
+
+    .add-channel-bar .add-channel-btn {
+      width: calc(100% - 32px);
+    }
+
     .add-channel-btn {
       display: flex;
       align-items: center;
@@ -804,6 +816,11 @@ export class ManageDialog extends LitElement {
     const isConfirming = this._confirmingRemoveChannel;
 
     return html`
+      <div class="add-channel-bar">
+        <button class="add-channel-btn" @click=${this._openAddChannel}>
+          + ${t('Add channel')}
+        </button>
+      </div>
       ${this._channels.map((channel) => {
         const confirming = isConfirming === channel.channel_idx;
         const isActing = this._actionInProgress === `ch-${channel.channel_idx}`;
@@ -844,9 +861,6 @@ export class ManageDialog extends LitElement {
           </div>
         `;
       })}
-      <button class="add-channel-btn" @click=${this._openAddChannel}>
-        + ${t('Add channel')}
-      </button>
     `;
   }
 
