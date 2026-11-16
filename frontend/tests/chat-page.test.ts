@@ -1183,19 +1183,42 @@ describe('byte counter', () => {
     expect(send(page).disabled).toBe(false);
   });
 
-  it('blocks sending past the limit, by button and by Enter', async () => {
+  it('offers a text past the limit as numbered parts, sent a few seconds apart', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const api = await import('../src/api');
+      const page = await mountChatPage({ selectedId: '0' });
+      (page as unknown as { _conversationResolved: boolean })._conversationResolved = true;
+      const start = Number(counter(page).textContent);
+
+      await type(page, `${'slovo '.repeat(Math.ceil((start + 20) / 6))}`.trim());
+
+      expect(counter(page).textContent).toBe('2×');
+      expect(send(page).disabled).toBe(false);
+      send(page).click();
+      await vi.waitFor(() => expect(api.sendChannelMessage).toHaveBeenCalledTimes(1));
+      expect(String(vi.mocked(api.sendChannelMessage).mock.calls[0][2])).toMatch(/ 1\/2$/);
+      await vi.advanceTimersByTimeAsync(5000);
+      await vi.waitFor(() => expect(api.sendChannelMessage).toHaveBeenCalledTimes(2));
+      expect(String(vi.mocked(api.sendChannelMessage).mock.calls[1][2])).toMatch(/ 2\/2$/);
+      expect(page.shadowRoot!.querySelector('textarea')!.value).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('blocks a text that would need too many parts', async () => {
     const api = await import('../src/api');
     const page = await mountChatPage({ selectedId: '0' });
     const start = Number(counter(page).textContent);
 
-    await type(page, 'x'.repeat(start + 1));
+    await type(page, 'x '.repeat(start * 4));
 
-    expect(counter(page).textContent).toBe('-1');
+    expect(Number(counter(page).textContent)).toBeLessThan(0);
     expect(send(page).disabled).toBe(true);
     page.shadowRoot!.querySelector('textarea')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     await page.updateComplete;
     expect(api.sendChannelMessage).not.toHaveBeenCalled();
-    expect(page.shadowRoot!.querySelector('textarea')!.value).toHaveLength(start + 1);
   });
 });
 

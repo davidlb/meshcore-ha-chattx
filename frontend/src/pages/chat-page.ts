@@ -6,7 +6,7 @@ import type { HomeAssistant, PanelConfig, Contact, Channel } from '../types';
 import { MessageStore } from '../chat/message-store';
 import { UnreadController, pillLabel } from '../chat/unread-controller';
 import { buildRenderItems } from '../chat/message-parser';
-import { remainingMessageBytes } from '../utils/message-limit';
+import { remainingMessageBytes, splitMessage } from '../utils/message-limit';
 import { loadStripDiacritics, saveStripDiacritics, stripDiacritics } from '../utils/diacritics';
 import { loadShowContactIds, saveShowContactIds } from '../utils/contact-ids';
 import { loadShowMessagePreview, saveShowMessagePreview } from '../utils/message-preview';
@@ -26,6 +26,9 @@ import '../components/node-detail-dialog';
 import '../components/quick-message-picker';
 import '../components/emoji-picker';
 import '../components/image-upload-dialog';
+
+/** Pause between the parts of a long message. */
+const PART_PAUSE_MS = 5000;
 
 @customElement('chattx-chat-page')
 export class ChatPage extends LitElement {
@@ -72,6 +75,8 @@ export class ChatPage extends LitElement {
   @state() private _imageFile: Blob | null = null;
   @state() private _shortenError = '';
   @state() private _reactionError = '';
+  /** While a long text goes out in parts: the part being sent and the count. */
+  @state() private _partProgress: { part: number; count: number } | null = null;
   @state() private _sending = false;
   @state() private _viewportNarrow = false;
   private _mediaQuery: MediaQueryList | null = null;
@@ -291,6 +296,11 @@ export class ChatPage extends LitElement {
       font-variant-numeric: tabular-nums;
       text-align: right;
       color: var(--secondary-text-color, #727272);
+    }
+
+    .byte-counter.parts {
+      color: var(--primary-color);
+      font-weight: 600;
     }
 
     .byte-counter.at-limit {
@@ -1003,6 +1013,7 @@ export class ChatPage extends LitElement {
     });
 
     const remaining = this._remainingBytes();
+    const parts = remaining < 0 ? this._messageParts() : null;
     const diacriticsLabel = t('Send without diacritics. The text changes when it is sent.');
     return html`
       <div class="chat-container" @reply-to-sender=${this._onReplyToSender} @resend-message=${this._onResendMessage} @react-to-message=${this._onReactToMessage} @scroll=${this._onChatScroll}>
@@ -1084,21 +1095,26 @@ export class ChatPage extends LitElement {
               this._sendMessage();
             }
           }}
-          ?readonly=${this._sending}
+          ?readonly=${this._sending || !!this._partProgress}
           ?disabled=${!this.selectedId}></textarea>
         <div class="composer-counter">
           <chattx-emoji-picker
             ?disabled=${this._sending || !this.selectedId}
             @emoji-selected=${this._onEmojiSelected}></chattx-emoji-picker>
-          <span
-            class=${remaining <= 0 ? 'byte-counter at-limit' : 'byte-counter'}
-            title=${t('Bytes left. Letters with diacritics take 2, emoji take 4. In channels your node name is part of the message.')}>${remaining}</span>
+          ${this._partProgress
+            ? html`<span class="byte-counter parts" title=${t('Sending a long message in parts')}>${this._partProgress.part}/${this._partProgress.count}</span>`
+            : parts
+              ? html`<span class="byte-counter parts"
+                  title=${t('Too long for one message: it will be sent as {n} messages numbered 1/{n} to {n}/{n}, a few seconds apart.', { n: parts.length })}>${parts.length}×</span>`
+              : html`<span
+                  class=${remaining <= 0 ? 'byte-counter at-limit' : 'byte-counter'}
+                  title=${t('Bytes left. Letters with diacritics take 2, emoji take 4. In channels your node name is part of the message.')}>${remaining}</span>`}
         </div>
         <button
           class="send-button"
           aria-label=${t('Send message')}
           @click=${() => this._sendMessage()}
-          ?disabled=${this._sending || !this.selectedId || !this._inputText.trim() || remaining < 0}>
+          ?disabled=${this._sending || !!this._partProgress || !this.selectedId || !this._inputText.trim() || (remaining < 0 && !parts)}>
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L4.13399899,1.16151496 C3.34915502,0.9 2.40734225,0.9 1.77946707,1.4429026 C0.994623095,2.0752101 0.837654326,3.00778453 1.15159189,3.98029867 L3.03521743,10.4212916 C3.03521743,10.5783889 3.19218622,10.7354863 3.50612381,10.7354863 L16.6915026,11.5209733 C16.6915026,11.5209733 17.1624089,11.5209733 17.1624089,12.0492776 C17.1624089,12.5775818 16.6915026,12.4744748 16.6915026,12.4744748 Z"/>
           </svg>
@@ -1326,6 +1342,11 @@ export class ChatPage extends LitElement {
     }
   }
 
+  /** The numbered parts of a text too long for one message, or null. */
+  private _messageParts(): string[] | null {
+    return splitMessage(this._outgoingText(), this._isContact() ? null : this.config?.node_name ?? '');
+  }
+
   private _remainingBytes(): number {
     return remainingMessageBytes(this._outgoingText(), this._isContact() ? null : this.config?.node_name ?? '');
   }
@@ -1446,10 +1467,16 @@ export class ChatPage extends LitElement {
     if (this._sending || !this._inputText.trim() || !this.selectedId || !this.hass || !this.config) {
       return;
     }
-    // Too long: firmware cuts a channel message short and refuses a direct one.
-    if (this._remainingBytes() < 0) return;
+    if (this._partProgress) return;
     if (!this._conversationResolved) {
       console.warn('Cannot send — conversation not resolved');
+      return;
+    }
+    // Too long: firmware cuts a channel message short and refuses a direct
+    // one, so it goes out as numbered parts, or not at all.
+    if (this._remainingBytes() < 0) {
+      const parts = this._messageParts();
+      if (parts) await this._deliverParts(parts);
       return;
     }
 
@@ -1458,17 +1485,41 @@ export class ChatPage extends LitElement {
     if (!(await this._deliver(text))) this._inputText = text; // Restore text on error
   }
 
+  /**
+   * Send numbered parts one after another. The pause lets each flood spread
+   * before the next, and keeps the parts in different seconds: meshcore-ha
+   * matches a channel message's repeats by its send second. When a part
+   * fails, the unsent parts go back to the composer.
+   */
+  private async _deliverParts(parts: string[]) {
+    const original = this._inputText;
+    this._inputText = '';
+    try {
+      for (let i = 0; i < parts.length; i++) {
+        this._partProgress = { part: i + 1, count: parts.length };
+        if (i > 0) await new Promise((resolve) => setTimeout(resolve, PART_PAUSE_MS));
+        if (!(await this._deliver(parts[i]))) {
+          // The unsent rest, without its old numbering.
+          this._inputText = i === 0 ? original : parts.slice(i).map((p) => p.replace(/ \d+\/\d+$/, '')).join(' ');
+          return;
+        }
+      }
+    } finally {
+      this._partProgress = null;
+    }
+  }
+
   /** "Send again" in the message dialog: the same text to this conversation, as a new message. */
   private _onResendMessage(e: CustomEvent<{ text: string }>) {
     const text = e.detail?.text?.trim();
-    if (!text || this._sending || !this._conversationResolved) return;
+    if (!text || this._sending || this._partProgress || !this._conversationResolved) return;
     void this._deliver(text);
   }
 
   /** React to a stored message: the backend builds the text, we send it. */
   private async _onReactToMessage(e: CustomEvent<{ messageId: string; emoji: string }>) {
     const entityId = this._messageStore?.entityId;
-    if (!entityId || !this.hass || this._sending || !this._conversationResolved) return;
+    if (!entityId || !this.hass || this._sending || this._partProgress || !this._conversationResolved) return;
     this._reactionError = '';
     let text: string;
     try {

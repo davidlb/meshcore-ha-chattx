@@ -730,5 +730,7 @@
   "React with {emoji}": "Odzovi se z {emoji}",
   "This message cannot get a reaction: its send time is not known.": "Na to sporočilo se ni mogoče odzvati: čas pošiljanja ni znan.",
   "The reaction could not be sent: {error}": "Odziva ni bilo mogoče poslati: {error}",
-  "sending failed": "pošiljanje ni uspelo"
+  "sending failed": "pošiljanje ni uspelo",
+  "Sending a long message in parts": "Dolgo sporočilo se pošilja po delih",
+  "Too long for one message: it will be sent as {n} messages numbered 1/{n} to {n}/{n}, a few seconds apart.": "Predolgo za eno sporočilo: poslano bo kot {n} sporočil, oštevilčenih od 1/{n} do {n}/{n}, z nekaj sekundami razmika."
 }

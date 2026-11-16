@@ -730,5 +730,7 @@
   "React with {emoji}": "Reagovať {emoji}",
   "This message cannot get a reaction: its send time is not known.": "Na túto správu nemožno reagovať: nie je známy čas jej odoslania.",
   "The reaction could not be sent: {error}": "Reakciu sa nepodarilo odoslať: {error}",
-  "sending failed": "odoslanie zlyhalo"
+  "sending failed": "odoslanie zlyhalo",
+  "Sending a long message in parts": "Dlhá správa sa odosiela po častiach",
+  "Too long for one message: it will be sent as {n} messages numbered 1/{n} to {n}/{n}, a few seconds apart.": "Na jednu správu je to príliš dlhé: odošle sa ako {n} správ očíslovaných 1/{n} až {n}/{n}, po niekoľkých sekundách."
 }

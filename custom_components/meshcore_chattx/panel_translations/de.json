@@ -730,5 +730,7 @@
   "React with {emoji}": "Mit {emoji} reagieren",
   "This message cannot get a reaction: its send time is not known.": "Auf diese Nachricht kann nicht reagiert werden: Ihre Sendezeit ist unbekannt.",
   "The reaction could not be sent: {error}": "Die Reaktion konnte nicht gesendet werden: {error}",
-  "sending failed": "Senden fehlgeschlagen"
+  "sending failed": "Senden fehlgeschlagen",
+  "Sending a long message in parts": "Lange Nachricht wird in Teilen gesendet",
+  "Too long for one message: it will be sent as {n} messages numbered 1/{n} to {n}/{n}, a few seconds apart.": "Zu lang für eine Nachricht: wird als {n} Nachrichten 1/{n} bis {n}/{n} gesendet, im Abstand von einigen Sekunden."
 }

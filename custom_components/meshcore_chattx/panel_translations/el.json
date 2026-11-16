@@ -730,5 +730,7 @@
   "React with {emoji}": "Αντίδραση με {emoji}",
   "This message cannot get a reaction: its send time is not known.": "Δεν είναι δυνατή η αντίδραση σε αυτό το μήνυμα: η ώρα αποστολής του είναι άγνωστη.",
   "The reaction could not be sent: {error}": "Η αντίδραση δεν στάλθηκε: {error}",
-  "sending failed": "η αποστολή απέτυχε"
+  "sending failed": "η αποστολή απέτυχε",
+  "Sending a long message in parts": "Αποστολή μεγάλου μηνύματος σε μέρη",
+  "Too long for one message: it will be sent as {n} messages numbered 1/{n} to {n}/{n}, a few seconds apart.": "Πολύ μεγάλο για ένα μήνυμα: θα σταλεί ως {n} μηνύματα με αρίθμηση 1/{n} έως {n}/{n}, με λίγα δευτερόλεπτα διαφορά."
 }

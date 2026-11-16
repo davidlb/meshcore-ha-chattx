@@ -730,5 +730,7 @@
   "React with {emoji}": "Reagera med {emoji}",
   "This message cannot get a reaction: its send time is not known.": "Det går inte att reagera på detta meddelande: dess sändningstid är okänd.",
   "The reaction could not be sent: {error}": "Reaktionen kunde inte skickas: {error}",
-  "sending failed": "sändningen misslyckades"
+  "sending failed": "sändningen misslyckades",
+  "Sending a long message in parts": "Skickar ett långt meddelande i delar",
+  "Too long for one message: it will be sent as {n} messages numbered 1/{n} to {n}/{n}, a few seconds apart.": "För långt för ett meddelande: skickas som {n} meddelanden numrerade 1/{n} till {n}/{n}, med några sekunders mellanrum."
 }
