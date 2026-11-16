@@ -3192,7 +3192,7 @@ let e,t,o,i,r,s,a,n,l,d,c,u,h,p,m,g,v,f,y,_,b,x,w,k,$,C,F,B,A,E,S,D,M,P,z,I,R,O,
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(0, 0, 0, 0.5);
       z-index: 20;
       display: flex;
       align-items: center;
