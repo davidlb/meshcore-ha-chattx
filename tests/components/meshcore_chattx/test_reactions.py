@@ -1,7 +1,10 @@
 """Tests for reactions (MeshCore One format)."""
 
+import asyncio
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
+from custom_components.meshcore_chattx import _record_sender_timestamp, _sender_time_cache
 from custom_components.meshcore_chattx.message_store import (
     _add_reaction,
     _find_reaction_target,
@@ -65,6 +68,17 @@ def test_sender_time_cache():
     cache.put(key, 1_704_067_200)
     assert cache.pop(key) == 1_704_067_200
     assert cache.pop(key) is None
+
+
+async def test_direct_message_waits_for_its_sender_time():
+    hass = SimpleNamespace(data={})
+    cache = _sender_time_cache(hass)
+    data = {"pubkey_prefix": "ABCDEF012345"}
+    record = {"outgoing": False, "message_type": "direct", "text": "Hello"}
+    key = SenderTimeCache.direct_key("abcdef012345", "Hello")
+    asyncio.get_running_loop().call_later(0.1, cache.put, key, 1_704_067_200)
+    await _record_sender_timestamp(hass, data, record)
+    assert record["sender_timestamp"] == 1_704_067_200
 
 
 def test_target_by_known_sender_time():
