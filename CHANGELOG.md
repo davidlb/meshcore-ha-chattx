@@ -4,6 +4,16 @@ All notable changes to **MeshCore Chattx for Home Assistant**, a fork of MeshCor
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-16
+
+### Changed
+
+- The composer is one row everywhere: +, the message field (one line while empty, growing with the text), and a smaller Send with the bytes left right above it. + opens a strip with quick messages (⚡), without diacritics (á→a), image (📎), location (📍) and emoji; a dot on + shows that "without diacritics" is on. More of the conversation fits on the screen.
+
+### Added
+
+- Name suggestions after "@" in the message field: typing "@al" offers the radio's contacts that match (every node it has an advert from, added or discovered) and everyone who wrote in the open conversation, also without an advert (diacritics and case don't matter); people from the conversation come first, the latest on top, repeaters last. Arrows choose, Enter or Tab inserts "@[Name] ", Escape closes; a tap works too.
+
 ## [0.22.1] - 2026-11-16
 
 ### Fixed
