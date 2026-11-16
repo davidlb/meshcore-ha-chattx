@@ -22,6 +22,7 @@ present whenever ``async_setup_entry`` runs here.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 from dataclasses import dataclass
@@ -418,6 +419,11 @@ def _sender_time_cache(hass: HomeAssistant) -> SenderTimeCache:
     return cache
 
 
+# How long a received direct message waits for its sender time (0.5 s at most).
+_SENDER_TIME_POLLS = 10
+_SENDER_TIME_POLL_INTERVAL = 0.05
+
+
 def _subscribe_sender_times(hass: HomeAssistant, entry) -> None:
     """Listen to each radio's receive events for the sender timestamps.
 
@@ -469,7 +475,7 @@ def _subscribe_sender_times(hass: HomeAssistant, entry) -> None:
         entry.async_on_unload(_remove)
 
 
-def _record_sender_timestamp(hass: HomeAssistant, data: dict, record: dict) -> None:
+async def _record_sender_timestamp(hass: HomeAssistant, data: dict, record: dict) -> None:
     """Put the packet's sender timestamp on a received message record."""
     if record["outgoing"]:
         return
@@ -480,6 +486,13 @@ def _record_sender_timestamp(hass: HomeAssistant, data: dict, record: dict) -> N
     else:
         key = SenderTimeCache.direct_key(data.get("pubkey_prefix"), text)
     ts = cache.pop(key)
+    # meshcore fires a direct message's event from inside the receive callback,
+    # so it can reach us before our own receive callback has noted the time.
+    for _ in range(_SENDER_TIME_POLLS):
+        if ts is not None or record.get("message_type") == "channel":
+            break
+        await asyncio.sleep(_SENDER_TIME_POLL_INTERVAL)
+        ts = cache.pop(key)
     if ts is not None:
         record["sender_timestamp"] = ts
 
@@ -625,7 +638,7 @@ def _make_message_handler(hass: HomeAssistant, entry_id: str):
             _LOGGER.debug("Message from a blocked sender in %s not stored", entity_id)
             return
 
-        _record_sender_timestamp(hass, data, record)
+        await _record_sender_timestamp(hass, data, record)
 
         # A reaction is not chat: it goes onto the message it points at.
         parsed = parse_reaction(record["text"], record.get("message_type") == "channel")

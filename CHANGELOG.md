@@ -4,6 +4,10 @@ All notable changes to **MeshCore Chattx for Home Assistant**, a fork of MeshCor
 
 ## [Unreleased]
 
+### Fixed
+
+- Reacting to a received direct message failed with "its send time is not known": the message could be stored before Chattx had noted the sender's time from the radio. A direct message now waits up to half a second for it. Direct messages received before this fix still cannot get a reaction.
+
 ## [0.20.0] - 2026-11-14
 
 ### Added
