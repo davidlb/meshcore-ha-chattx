@@ -26,9 +26,18 @@ import '../components/node-detail-dialog';
 import '../components/quick-message-picker';
 import '../components/emoji-picker';
 import '../components/image-upload-dialog';
+import '../components/location-dialog';
 
-/** Pause between the parts of a long message. */
-const PART_PAUSE_MS = 5000;
+/**
+ * Between the parts of a long message: the next part waits until our radio
+ * hears a repeater repeat the previous one (a direct message: its ACK), at
+ * least PART_MIN_PAUSE_MS and at most PART_MAX_WAIT_MS. A part that a nearby
+ * repeater missed reaches the mesh by a longer way; sent at once, the next
+ * part could get ahead of it.
+ */
+const PART_MIN_PAUSE_MS = 2000;
+const PART_MAX_WAIT_MS = 15000;
+const PART_POLL_MS = 250;
 
 @customElement('chattx-chat-page')
 export class ChatPage extends LitElement {
@@ -73,6 +82,7 @@ export class ChatPage extends LitElement {
   @state() private _shortening = false;
   /** Image chosen or pasted for upload; the upload dialog is open while set. */
   @state() private _imageFile: Blob | null = null;
+  @state() private _locationOpen = false;
   @state() private _shortenError = '';
   @state() private _reactionError = '';
   /** While a long text goes out in parts: the part being sent and the count. */
@@ -1055,6 +1065,13 @@ export class ChatPage extends LitElement {
         .file=${this._imageFile}
         @close=${() => { this._imageFile = null; }}
         @image-uploaded=${this._onImageUploaded}></chattx-image-upload-dialog>
+      <chattx-location-dialog
+        .hass=${this.hass}
+        .entryId=${this.config?.entry_id}
+        mode="pick"
+        ?open=${this._locationOpen}
+        @close=${() => { this._locationOpen = false; }}
+        @location-selected=${this._onLocationSelected}></chattx-location-dialog>
       <div class="input-area" @mousedown=${this._keepComposerFocus}>
         <div class="composer-tools">
           <chattx-quick-message-picker
@@ -1073,6 +1090,12 @@ export class ChatPage extends LitElement {
             aria-label=${t('Send an image')}
             ?disabled=${this._sending || !this.selectedId}
             @click=${this._pickImage}>📎</button>
+          <button
+            class="diacritics-toggle image-button"
+            title=${t('Send a location')}
+            aria-label=${t('Send a location')}
+            ?disabled=${this._sending || !this.selectedId}
+            @click=${() => { this._locationOpen = true; }}>📍</button>
           <input class="image-input" type="file" accept="image/*" hidden
             @change=${(e: Event) => {
               const input = e.target as HTMLInputElement;
@@ -1451,6 +1474,13 @@ export class ChatPage extends LitElement {
     }));
   }
 
+  /** Put a picked location into the message, with a space around it. */
+  private async _onLocationSelected(e: CustomEvent<{ text: string }>) {
+    this._locationOpen = false;
+    const before = this._inputText && !/\s$/.test(this._inputText) ? ' ' : '';
+    await this._onEmojiSelected(new CustomEvent('emoji-selected', { detail: { emoji: `${before}${e.detail.text} ` } }));
+  }
+
   private async _onEmojiSelected(e: CustomEvent<{ emoji: string }>) {
     const textarea = this.shadowRoot?.querySelector<HTMLTextAreaElement>('.input-area textarea');
     const start = textarea?.selectionStart ?? this._inputText.length;
@@ -1486,10 +1516,10 @@ export class ChatPage extends LitElement {
   }
 
   /**
-   * Send numbered parts one after another. The pause lets each flood spread
-   * before the next, and keeps the parts in different seconds: meshcore-ha
-   * matches a channel message's repeats by its send second. When a part
-   * fails, the unsent parts go back to the composer.
+   * Send numbered parts one after another, each once the previous one is out
+   * in the mesh (see PART_MIN_PAUSE_MS). The pause also keeps the parts in
+   * different seconds: meshcore-ha matches a channel message's repeats by its
+   * send second. When a part fails, the unsent parts go back to the composer.
    */
   private async _deliverParts(parts: string[]) {
     const original = this._inputText;
@@ -1497,7 +1527,7 @@ export class ChatPage extends LitElement {
     try {
       for (let i = 0; i < parts.length; i++) {
         this._partProgress = { part: i + 1, count: parts.length };
-        if (i > 0) await new Promise((resolve) => setTimeout(resolve, PART_PAUSE_MS));
+        if (i > 0) await this._waitUntilOut(parts[i - 1]);
         if (!(await this._deliver(parts[i]))) {
           // The unsent rest, without its old numbering.
           this._inputText = i === 0 ? original : parts.slice(i).map((p) => p.replace(/ \d+\/\d+$/, '')).join(' ');
@@ -1514,6 +1544,29 @@ export class ChatPage extends LitElement {
     const text = e.detail?.text?.trim();
     if (!text || this._sending || this._partProgress || !this._conversationResolved) return;
     void this._deliver(text);
+  }
+
+  /** Wait until a sent part is out in the mesh, between the minimum pause and the limit. */
+  private async _waitUntilOut(text: string) {
+    const start = Date.now();
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    await sleep(PART_MIN_PAUSE_MS);
+    while (Date.now() - start < PART_MAX_WAIT_MS && !this._partOut(text)) {
+      await sleep(PART_POLL_MS);
+    }
+  }
+
+  /** A repeater repeated our channel message with this text, or the recipient confirmed the direct one. */
+  private _partOut(text: string): boolean {
+    const messages = this._messageStore?.messages ?? [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (!m.isOutgoing || m.text !== text) continue;
+      const d = m.deliveryStatus;
+      if (this._isContact()) return d?.ackReceived === true || d?.status === 'delivered';
+      return (m.repeaterCount ?? d?.repeaterCount ?? 0) > 0;
+    }
+    return false;
   }
 
   /** React to a stored message: the backend builds the text, we send it. */

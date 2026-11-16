@@ -4,7 +4,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { Contact, HomeAssistant } from '../types';
 import { MapTilesController } from '../utils/map-tiles';
 import { offlineMapLayer, offlineMapStyles } from '../utils/offline-map';
-import { TILE_SIZE, fitZoom, project } from '../utils/path-route';
+import { TILE_SIZE, fitZoom, project, unproject } from '../utils/path-route';
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 17;
@@ -43,6 +43,14 @@ export class NodesMap extends LitElement {
   @property({ attribute: false }) nodes: Contact[] = [];
   @property({ attribute: false }) home: { lat: number; lon: number } | null = null;
   @property({ type: Boolean }) loading = false;
+  /** A tap on the map (not on a node) picks that place: fires `location-picked`. */
+  @property({ type: Boolean }) pickable = false;
+  /** A place shown with a pin: the picked one, or a location from a message. */
+  @property({ attribute: false }) pin: { lat: number; lon: number } | null = null;
+  /** Without the node-type legend (for picking or showing one place). */
+  @property({ type: Boolean, attribute: 'no-legend' }) noLegend = false;
+  /** Fitting the view never zooms in closer than this (one place alone: at most 12). */
+  @property({ type: Number, attribute: 'max-fit-zoom' }) maxFitZoom = 15;
   /** Only the first hass is used (for the tile token), so state changes don't redraw the map. */
   @property({ attribute: false, hasChanged: (value: unknown, old: unknown) => !old && !!value }) hass?: HomeAssistant;
   private _tiles = new MapTilesController(this, () => this.hass);
@@ -64,6 +72,8 @@ export class NodesMap extends LitElement {
   private _lastWheel = 0;
   /** Marker under the first finger or the mouse when pressed. */
   private _downMarker: string | null = null;
+  /** Where the first finger or the mouse went down, in map pixels. */
+  private _downAt: { x: number; y: number } | null = null;
 
   static styles = [offlineMapStyles, css`
     :host {
@@ -178,7 +188,7 @@ export class NodesMap extends LitElement {
   }
 
   updated(changed: Map<string, unknown>) {
-    if (changed.has('nodes') && this.nodes.length > 0) {
+    if ((changed.has('nodes') && this.nodes.length > 0) || (changed.has('pin') && !this._fitted)) {
       this._userMoved = false;
       this._fit();
     }
@@ -200,8 +210,9 @@ export class NodesMap extends LitElement {
       pts = pts.filter((p) => p.lat >= la0 && p.lat <= la1 && p.lon >= lo0 && p.lon <= lo1);
     }
     if (this.home) pts.push(this.home);
+    if (this.pin) pts.push(this.pin);
     if (pts.length === 0) return;
-    const zoom = pts.length === 1 ? 12 : Math.min(15, fitZoom(pts, this._w, this._h, 30));
+    const zoom = Math.min(this.maxFitZoom, pts.length === 1 ? 12 : fitZoom(pts, this._w, this._h, 30));
     const px = pts.map((p) => project(p.lat, p.lon, zoom));
     const xs = px.map((p) => p[0]);
     const ys = px.map((p) => p[1]);
@@ -242,6 +253,7 @@ export class NodesMap extends LitElement {
     if (this._pointers.size === 0) {
       const target = (e.composedPath()[0] as Element | undefined)?.closest?.('[data-marker]');
       this._downMarker = target?.getAttribute('data-marker') ?? null;
+      this._downAt = this._local(e);
     }
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     this._pointers.set(e.pointerId, this._local(e));
@@ -285,8 +297,16 @@ export class NodesMap extends LitElement {
     // A tap (no drag) on a marker or cluster.
     if (this._pointers.size === 0 && this._moved < 6 && this._downMarker) {
       this._activate(this._downMarker);
+    } else if (this._pointers.size === 0 && this._moved < 6 && this.pickable && this._downAt) {
+      const left = this._cx - this._w / 2;
+      const top = this._cy - this._h / 2;
+      const place = unproject(left + this._downAt.x, top + this._downAt.y, this._zoom);
+      this.dispatchEvent(new CustomEvent('location-picked', { detail: place, bubbles: true, composed: true }));
     }
-    if (this._pointers.size === 0) this._downMarker = null;
+    if (this._pointers.size === 0) {
+      this._downMarker = null;
+      this._downAt = null;
+    }
   }
 
   private _clusters: Map<string, { x: number; y: number; items: Placed[] }> = new Map();
@@ -363,6 +383,16 @@ export class NodesMap extends LitElement {
       const [hx, hy] = project(this.home.lat, this.home.lon, z);
       homeMarker = svg`<circle cx=${hx - left} cy=${hy - top} r="9" fill="#1e88e5" stroke="#fff" stroke-width="3"><title>${t('You')}</title></circle>`;
     }
+    let pinMarker = svg``;
+    if (this.pin) {
+      const [px, py] = project(this.pin.lat, this.pin.lon, z);
+      const x = px - left;
+      const y = py - top;
+      pinMarker = svg`<g class="pin" pointer-events="none">
+        <path d="M${x} ${y} l-9 -16 a10.5 10.5 0 1 1 18 0 z" fill="#e53935" stroke="#fff" stroke-width="2" />
+        <circle cx=${x} cy=${y - 21} r="3.5" fill="#fff" />
+      </g>`;
+    }
     const missing = this.nodes.length - placed.length;
     return html`
       <div class="wrap"
@@ -375,6 +405,7 @@ export class NodesMap extends LitElement {
           ${tiles}
           ${markers}
           ${homeMarker}
+          ${pinMarker}
           <text class="attribution" x=${this._w - 4} y=${this._h - 4} text-anchor="end">${offline ? '© geoBoundaries, GeoNames' : '© OpenStreetMap'}</text>
         </svg>
         ${offline ? html`<div class="offline-note">${this._tiles.offlineLoaded && !this._tiles.offlineMap
@@ -386,7 +417,7 @@ export class NodesMap extends LitElement {
           <button aria-label=${t('Show all')} @click=${() => { this._userMoved = false; this._fit(); }}>⤢</button>
         </div>
       </div>
-      <div class="legend">
+      ${this.noLegend ? nothing : html`<div class="legend">
         <span><span class="dot" style="background:${TYPE_COLORS[2]}"></span>${t('Repeater')}</span>
         <span><span class="dot" style="background:${TYPE_COLORS[1]}"></span>${t('Companion')}</span>
         <span><span class="dot" style="background:${TYPE_COLORS[3]}"></span>${t('Room server')}</span>
@@ -395,7 +426,7 @@ export class NodesMap extends LitElement {
         <span>${this.loading
           ? t('Loading...')
           : t('{shown} of {total} nodes have a known position', { shown: placed.length, total: placed.length + missing })}</span>
-      </div>
+      </div>`}
     `;
   }
 }

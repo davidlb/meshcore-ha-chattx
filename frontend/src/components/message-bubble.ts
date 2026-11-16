@@ -16,6 +16,8 @@ import { loadImagePreviews } from '../utils/image-previews';
 import { imageFailed, markImageFailed, proxiedImage } from '../utils/image-proxy';
 import './image-viewer';
 import { QUICK_REACTIONS, groupReactions } from '../utils/reactions';
+import { MECP_SEVERITIES, mecpSeverity, splitLocations, type LatLon } from '../utils/location';
+import './location-dialog';
 
 /**
  * Generate a deterministic color from a string (e.g., pubkey prefix).
@@ -47,6 +49,10 @@ export class MessageBubble extends LitElement {
   @state() private _copiedKey = '';
   /** The image shown large over the conversation. */
   @state() private _viewer: { src: string; url: string } | null = null;
+  /** A location from a message, shown on the map. */
+  @state() private _place: LatLon | null = null;
+  /** The message being rendered is MECP: bare coordinates are locations too. */
+  private _bareCoords = false;
 
   constructor() {
     super();
@@ -375,6 +381,22 @@ export class MessageBubble extends LitElement {
       max-width: 280px;
     }
 
+    .mecp {
+      display: inline-block;
+      margin-bottom: 4px;
+      padding: 1px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: #fff;
+      background: #757575;
+    }
+
+    .mecp-0 { background: #d32f2f; }
+    .mecp-1 { background: #ef6c00; }
+    .mecp-2 { background: #f9a825; color: #212121; }
+
     .reactions {
       display: flex;
       flex-wrap: wrap;
@@ -500,6 +522,8 @@ export class MessageBubble extends LitElement {
           ? html`<chattx-image-viewer .src=${this._viewer.src} .original=${this._viewer.url}
               @close=${() => { this._viewer = null; }}></chattx-image-viewer>`
           : html``}
+        <chattx-location-dialog .hass=${this.hass} mode="view" .place=${this._place} ?open=${!!this._place}
+          @close=${() => { this._place = null; }}></chattx-location-dialog>
       `;
     }
     return html``;
@@ -557,12 +581,31 @@ export class MessageBubble extends LitElement {
 
     return html`
       <div class=${this._classMap(bubbleClasses)} data-msg-id=${msg.id} @click=${(e: Event) => { e.stopPropagation(); this._openDialog(msg); }}>
-        <div class="message-text">${this._renderTextWithMentions(msg.text, msg.mentions)}</div>
+        ${this._renderMecp(msg.text)}
+        <div class="message-text">${this._renderMessageText(msg)}</div>
         ${this._renderImages(msg.text)}
         <div class="timestamp">${statusLabel ? html`<span class="delivery-status">${statusLabel}</span> · ` : ''}${ts}${scopeLabel ? html` · <span class="flood-scope">${scopeLabel}</span>` : ''}</div>
         ${this._renderReactions(msg)}
       </div>
     `;
+  }
+
+  private _renderMessageText(msg: ChatMessage) {
+    this._bareCoords = mecpSeverity(msg.text) !== null;
+    try {
+      return this._renderTextWithMentions(msg.text, msg.mentions);
+    } finally {
+      this._bareCoords = false;
+    }
+  }
+
+  /** An MECP emergency message gets its severity above the text. */
+  private _renderMecp(text: string) {
+    const severity = mecpSeverity(text);
+    if (severity === null) return html``;
+    return html`<div class="mecp mecp-${severity}" title=${t('MECP emergency message')}>
+      ${severity === 0 ? '🆘' : severity === 3 ? 'ℹ️' : '⚠️'} MECP ${MECP_SEVERITIES[severity]}
+    </div>`;
   }
 
   /** Reaction chips under the bubble: emoji and count, senders on hover. */
@@ -779,7 +822,14 @@ export class MessageBubble extends LitElement {
    * Assistant app hands to the default browser. A click on a link does not
    * open the message dialog.
    */
-  private _renderLinks(text: string) {
+  private _renderLinks(text: string): unknown {
+    const places = splitLocations(text, this._bareCoords);
+    if (places.length > 1 || !('text' in places[0])) {
+      return places.map((p) => ('place' in p
+        ? html`<a class="link location" href="#" title=${t('Show on the map')}
+            @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._place = p.place; }}>${p.label}</a>`
+        : this._renderLinks(p.text)));
+    }
     const parts = splitLinks(text);
     if (parts.length === 1 && 'text' in parts[0]) return text;
     return parts.map((p) => ('url' in p

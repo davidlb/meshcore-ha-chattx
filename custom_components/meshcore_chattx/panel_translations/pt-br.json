@@ -732,5 +732,17 @@
   "The reaction could not be sent: {error}": "Não foi possível enviar a reação: {error}",
   "sending failed": "falha no envio",
   "Sending a long message in parts": "Enviando uma mensagem longa em partes",
-  "Too long for one message: it will be sent as {n} messages numbered 1/{n} to {n}/{n}, a few seconds apart.": "Longa demais para uma mensagem: será enviada como {n} mensagens numeradas de 1/{n} a {n}/{n}, com alguns segundos de intervalo."
+  "Too long for one message: it will be sent as {n} messages numbered 1/{n} to {n}/{n}, a few seconds apart.": "Longa demais para uma mensagem: será enviada como {n} mensagens numeradas de 1/{n} a {n}/{n}, com alguns segundos de intervalo.",
+  "Show on the map": "Mostrar no mapa",
+  "Position saved in the radio": "Posição salva no rádio",
+  "Home Assistant home": "Casa do Home Assistant",
+  "Pick on the map": "Escolher no mapa",
+  "GPS receiver connected to Home Assistant": "Receptor GPS conectado ao Home Assistant",
+  "{distance} from you": "a {distance} de você",
+  "Coming later": "Em breve",
+  "Tap the map to pick a place; drag and zoom as usual. Works with the offline map too.": "Toque no mapa para escolher um local; arrastar e dar zoom como sempre. Funciona também com o mapa offline.",
+  "Open in OpenStreetMap": "Abrir no OpenStreetMap",
+  "Send a location": "Enviar uma localização",
+  "Insert into message": "Inserir na mensagem",
+  "MECP emergency message": "Mensagem de emergência MECP"
 }

@@ -1183,25 +1183,48 @@ describe('byte counter', () => {
     expect(send(page).disabled).toBe(false);
   });
 
-  it('offers a text past the limit as numbered parts, sent a few seconds apart', async () => {
+  async function startParts() {
+    const api = await import('../src/api');
+    const page = await mountChatPage({ selectedId: '0' });
+    (page as unknown as { _conversationResolved: boolean })._conversationResolved = true;
+    const start = Number(counter(page).textContent);
+    await type(page, `${'slovo '.repeat(Math.ceil((start + 20) / 6))}`.trim());
+    expect(counter(page).textContent).toBe('2×');
+    expect(send(page).disabled).toBe(false);
+    send(page).click();
+    await vi.waitFor(() => expect(api.sendChannelMessage).toHaveBeenCalledTimes(1));
+    expect(String(vi.mocked(api.sendChannelMessage).mock.calls[0][2])).toMatch(/ 1\/2$/);
+    return { api, page };
+  }
+
+  it('sends the next part when nobody repeated the previous one only after the limit', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      const api = await import('../src/api');
-      const page = await mountChatPage({ selectedId: '0' });
-      (page as unknown as { _conversationResolved: boolean })._conversationResolved = true;
-      const start = Number(counter(page).textContent);
-
-      await type(page, `${'slovo '.repeat(Math.ceil((start + 20) / 6))}`.trim());
-
-      expect(counter(page).textContent).toBe('2×');
-      expect(send(page).disabled).toBe(false);
-      send(page).click();
-      await vi.waitFor(() => expect(api.sendChannelMessage).toHaveBeenCalledTimes(1));
-      expect(String(vi.mocked(api.sendChannelMessage).mock.calls[0][2])).toMatch(/ 1\/2$/);
+      const { api, page } = await startParts();
       await vi.advanceTimersByTimeAsync(5000);
+      expect(api.sendChannelMessage).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(10500);
       await vi.waitFor(() => expect(api.sendChannelMessage).toHaveBeenCalledTimes(2));
       expect(String(vi.mocked(api.sendChannelMessage).mock.calls[1][2])).toMatch(/ 2\/2$/);
       expect(page.shadowRoot!.querySelector('textarea')!.value).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('sends the next part soon after a repeater repeated the previous one', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { api, page } = await startParts();
+      const store = (page as unknown as { _messageStore: { messages: Array<{ text: string; isOutgoing: boolean; repeaterCount?: number }> } })._messageStore;
+      const first = String(vi.mocked(api.sendChannelMessage).mock.calls[0][2]);
+      const sent = store.messages.find((m) => m.isOutgoing && m.text === first);
+      expect(sent).toBeTruthy();
+      sent!.repeaterCount = 1;
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(api.sendChannelMessage).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.waitFor(() => expect(api.sendChannelMessage).toHaveBeenCalledTimes(2));
     } finally {
       vi.useRealTimers();
     }
